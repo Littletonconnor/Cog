@@ -1,0 +1,15 @@
+{
+  "name": "cog-tui",
+  "description": "",
+  "version": "0.0.1",
+  "private": true,
+  "keywords": [],
+  "author": "connorlittleton",
+  "license": "MIT",
+  "scripts": {
+    "format": "biome format --write",
+    "lint": "biome lint --write",
+    "check": "biome check --write",
+    "ci": "biome ci"
+  }
+}

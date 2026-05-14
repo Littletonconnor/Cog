@@ -1,0 +1,19 @@
+{
+  "name": "cog",
+  "description": "A minimal coding agent",
+  "version": "0.0.1",
+  "private": true,
+  "keywords": [],
+  "author": "connorlittleton",
+  "license": "MIT",
+  "scripts": {
+    "format": "biome format --write",
+    "lint": "biome lint --write",
+    "check": "biome check --write",
+    "ci": "biome ci"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "typescript": "^6.0.3"
+  }
+}
