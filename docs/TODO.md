@@ -9,7 +9,7 @@
 ## Locked decisions (don't relitigate)
 
 - Node 22 LTS
-- pnpm workspaces, bare package names (`cog`, `agent`, `tui`, `tools`, `providers`)
+- pnpm workspaces, bare package names (`cog`, `agent`, `tui`, `tools`, `providers`). Root is `cog-monorepo` so the CLI package can claim the bare `cog` name.
 - ESM only (`"type": "module"` everywhere)
 - TypeScript via **tsc** (stock `typescript` package). Revisit tsgo later once it's stable / has stabilized package naming
 - **Biome** only (no eslint, no prettier)
@@ -40,20 +40,20 @@ Goal: `pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm dev` al
 
 Create these five directories, each with `package.json`, `tsconfig.json` (extends root), `src/index.ts` (empty export), `README.md` (one paragraph).
 
-- [ ] `packages/tui/` — terminal UI primitives. **No internal deps.**
-- [ ] `packages/providers/` — LLM provider clients (Anthropic, mock, etc.). **No internal deps.**
-- [ ] `packages/tools/` — built-in tools (read/write/edit/bash/grep/glob). **No internal deps.**
-- [ ] `packages/agent/` — agent loop, session, tool registry. Depends on: `tools`, `providers` (interface only).
-- [ ] `packages/cog/` — the CLI. Depends on: `agent`, `tui`, `providers`.
+- [x] `packages/tui/` — terminal UI primitives. **No internal deps.**
+- [x] `packages/providers/` — LLM provider clients (Anthropic, mock, etc.). **No internal deps.**
+- [x] `packages/tools/` — built-in tools (read/write/edit/bash/grep/glob). **No internal deps.**
+- [x] `packages/agent/` — agent loop, session, tool registry. Depends on: `tools`, `providers` (interface only).
+- [x] `packages/cog/` — the CLI. Depends on: `agent`, `tui`, `providers`.
 
 Per-package `package.json` checklist:
 
-- [ ] `name` matches directory (bare, no scope)
-- [ ] `"type": "module"`
-- [ ] `"main": "./dist/index.js"`, `"types": "./dist/index.d.ts"`
-- [ ] `exports` field pointing to `./dist/index.js`
-- [ ] `scripts`: `typecheck`, `build`, `test`, `clean`
-- [ ] Only `packages/cog` gets a `"bin"` field: `{ "cog": "./dist/cli.js" }`
+- [x] `name` matches directory (bare, no scope)
+- [x] `"type": "module"`
+- [x] `"main": "./dist/index.js"`, `"types": "./dist/index.d.ts"`
+- [x] `exports` field pointing to `./dist/index.js`
+- [x] `scripts`: `typecheck`, `build`, `test`, `clean`
+- [x] Only `packages/cog` gets a `"bin"` field: `{ "cog": "./dist/cli.js" }`
 
 ### M0.3 — Toolchain wiring
 

@@ -1,15 +1,24 @@
 {
-  "name": "cog-providers",
-  "description": "",
+  "name": "providers",
+  "description": "LLM provider clients for Cog — Anthropic, mock, and the shared StreamEvent contract.",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "keywords": [],
   "author": "connorlittleton",
   "license": "MIT",
   "scripts": {
-    "format": "biome format --write",
-    "lint": "biome lint --write",
-    "check": "biome check --write",
-    "ci": "biome ci"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
   }
 }
