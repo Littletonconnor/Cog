@@ -2,12 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["node"]
   },
   "include": ["src"],
-  "references": [
-    { "path": "../agent" },
-    { "path": "../tui" },
-    { "path": "../providers" }
-  ]
+  "references": [{ "path": "../agent" }, { "path": "../tui" }, { "path": "../providers" }]
 }

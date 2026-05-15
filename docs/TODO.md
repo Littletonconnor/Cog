@@ -57,15 +57,18 @@ Per-package `package.json` checklist:
 
 ### M0.3 — Toolchain wiring
 
-- [ ] Install dev deps at root: `typescript`, `@biomejs/biome`, `vitest`, `@types/node`. Nothing else.
-- [ ] Per-package `tsconfig.json` extends `../../tsconfig.base.json`, sets `outDir: "./dist"`, `rootDir: "./src"`, references upstream packages via `references` field
-- [ ] Verify path direction — `tui`, `providers`, `tools` must not import from each other or from `agent`/`cog`. (Document the rule in each package's README.)
+- [x] Install dev deps at root: `typescript`, `@biomejs/biome`, `vitest`, `@types/node`. Nothing else.
+- [x] Per-package `tsconfig.json` extends `../../tsconfig.base.json`, sets `outDir: "./dist"`, `rootDir: "./src"`, references upstream packages via `references` field
 
 ### M0.4 — Minimal `cog` binary
 
-- [ ] `packages/cog/src/cli.ts` — uses `node:util.parseArgs` (no `commander`/`yargs`). For now, just prints a banner ("Cog v0.0.1 — minimal coding agent") and exits 0.
-- [ ] `packages/cog/src/index.ts` — empty
-- [ ] Wire shebang `#!/usr/bin/env node` at the top of compiled `cli.js`. (Either prepend post-build, or just put `#!/usr/bin/env node` at the top of `cli.ts` — tsc preserves it.)
+Entry-point pattern: TS sources export `main()` from `src/index.ts`. A hand-written shim at `bin/cli.js` carries the shebang and calls into the compiled `dist/index.js`. Keeps shebangs out of TS source and avoids any post-build shebang prepend step.
+
+- [x] `packages/cog/src/index.ts` — exports a `main()` function. With no flags, prints the help message. With `--help` / `-h`, prints help. Exits non-zero on parse errors.
+- [x] `packages/cog/src/parser.ts` — thin wrapper around `node:util.parseArgs` (no `commander` / `yargs`). Owns the `CLI_OPTIONS` table.
+- [x] `packages/cog/src/help.ts` — exports `printHelpMessage()` returning the usage block.
+- [x] `packages/cog/bin/cli.js` — hand-written ESM shim with `#!/usr/bin/env node` shebang; body is `import { main } from "../dist/index.js"; main();`. Not compiled, not edited often.
+- [x] `packages/cog/package.json` `bin` field points to `./bin/cli.js`.
 
 ### M0.5 — Root scripts
 

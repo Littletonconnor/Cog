@@ -13,7 +13,7 @@
     }
   },
   "bin": {
-    "cog": "./dist/cli.js"
+    "cog": "./bin/cli.js"
   },
   "keywords": [],
   "author": "connorlittleton",
@@ -26,7 +26,10 @@
   },
   "dependencies": {
     "agent": "workspace:*",
-    "tui": "workspace:*",
-    "providers": "workspace:*"
+    "providers": "workspace:*",
+    "tui": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0"
   }
 }
