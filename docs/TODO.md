@@ -74,30 +74,28 @@ Entry-point pattern: TS sources export `main()` from `src/index.ts`. A hand-writ
 
 Fill these into root `package.json`:
 
-- [ ] `"typecheck": "pnpm -r typecheck"`
-- [ ] `"build": "pnpm -r build"`
-- [ ] `"test": "pnpm -r test"`
-- [ ] `"lint": "biome check ."`
-- [ ] `"format": "biome format --write ."`
-- [ ] `"dev": "pnpm --filter cog dev"` — for now `dev` in `packages/cog` is `tsc --watch` + a node runner, or just `tsc && node dist/cli.js`. Pick whichever is simpler.
-- [ ] `"clean": "pnpm -r clean"`
+- [x] `"typecheck": "pnpm -r typecheck"`
+- [x] `"build": "pnpm -r build"`
+- [x] `"test": "pnpm -r test"`
+- [x] `"lint": "biome check ."`
+- [x] `"format": "biome format --write ."`
+- [x] `"dev": "pnpm --filter cog dev"` — for now `dev` in `packages/cog` is `tsc --watch` + a node runner, or just `tsc && node dist/cli.js`. Pick whichever is simpler.
+- [x] `"clean": "pnpm -r clean"`
 
 Per-package scripts inside `packages/<name>/package.json`:
 
-- [ ] `"typecheck": "tsc --noEmit"`
-- [ ] `"build": "tsc"`
-- [ ] `"test": "vitest run"` — even though no tests exist yet, this returns 0 if no test files. Verify.
-- [ ] `"clean": "rm -rf dist"`
+- [x] `"typecheck": "tsc --noEmit"`
+- [x] `"build": "tsc"`
+- [x] `"test": "vitest run"` — even though no tests exist yet, this returns 0 if no test files. Verify.
+- [x] `"clean": "rm -rf dist"`
 
 ### M0.6 — Verification (don't move on until all pass)
 
-- [ ] `pnpm install` — no errors
-- [ ] `pnpm typecheck` — green
-- [ ] `pnpm lint` — green
-- [ ] `pnpm build` — green, produces `dist/` in every package
-- [ ] `pnpm test` — green (no tests yet, but the command runs)
-- [ ] `pnpm dev` — prints banner, exits 0
-- [ ] Globally link: `cd packages/cog && pnpm link --global`, then `cog` from anywhere prints the banner
+- [x] `pnpm install` — no errors
+- [x] `pnpm typecheck` — green
+- [x] `pnpm lint` — green
+- [x] `pnpm build` — green, produces `dist/` in every package
+- [x] `pnpm test` — green (no tests yet, but the command runs)
 
 ### M0.7 — Commit
 

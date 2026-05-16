@@ -7,13 +7,11 @@
   "author": "connorlittleton",
   "license": "MIT",
   "scripts": {
-    "format": "biome format --write",
-    "lint": "biome lint --write",
-    "check": "biome check --write",
-    "ci": "biome ci",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome format --write",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {
