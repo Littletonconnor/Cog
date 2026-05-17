@@ -1,8 +1,8 @@
 # Cog — TODO
 
-> **Current milestone: M0 — Scaffolding.**
+> **Current milestone: M2 — StreamEvent contract + mock provider.**
 > Work top to bottom. Check items as you complete them.
-> When M0 is done, move to M1 (which I'm drafting in `docs/TUI-DESIGN.md` in parallel).
+> M0 and M1 are done.
 
 ---
 
@@ -99,7 +99,7 @@ Per-package scripts inside `packages/<name>/package.json`:
 
 ### M0.7 — Commit
 
-- [ ] Single commit: `chore: M0 scaffolding — pnpm workspaces, biome, tsc, 5 packages, empty cog CLI`
+- [x] Single commit: `chore: M0 scaffolding — pnpm workspaces, biome, tsc, 5 packages, empty cog CLI`
 
 ---
 
@@ -107,17 +107,79 @@ Per-package scripts inside `packages/<name>/package.json`:
 
 **I am drafting this** in `docs/TUI-DESIGN.md`. When you've finished M0, read it, react, push back. Don't start M3 (TUI implementation) until M1 is signed off.
 
-- [ ] Read `docs/TUI-DESIGN.md` once it lands
-- [ ] React to: color choices, layout, screen states I missed, slash command list, status bar contents
-- [ ] Sign off (or send back for changes)
+- [x] Read `docs/TUI-DESIGN.md` once it lands
+- [x] React to: color choices, layout, screen states I missed, slash command list, status bar contents
+- [x] Sign off (or send back for changes)
 
 ---
 
 ## M2 — StreamEvent contract + mock provider
 
-Goal: a `MockProvider` that reads scripted JSON scenarios and emits realistic streaming events. The TUI consumes these. Real Anthropic later is a drop-in replacement.
+Goal: a `MockProvider` that reads scripted JSON scenarios and emits realistic streaming events. Real Anthropic later (M5) is a drop-in behind the same interface. The canonical event shape is defined in `docs/TUI-DESIGN.md §10`; this milestone makes it real code.
 
-(Detailed checklist drops after M1 is signed off — the event shape depends on what the TUI needs to render.)
+**Exit criteria:** `cog --mock <path-to-scenario>` runs and prints each event to stdout with realistic timing. M3 will replace the stdout dumper with the actual TUI; nothing else changes about this milestone's surface.
+
+### M2.1 — StreamEvent types in `packages/providers`
+
+The wire shape between providers and the agent loop / TUI. Mirrors `TUI-DESIGN.md §10` exactly.
+
+- [x] `packages/providers/src/types.ts` — discriminated union `StreamEvent` with 10 variants: `text_delta`, `tool_use_start`, `tool_use_running`, `tool_use_end`, `permission_ask`, `status_change`, `error`, `stop`, `compact_start`, `compact_end`. Use the `type` field as the discriminant.
+- [x] Same file: `TextContent` (`{ type: 'text', text: string }`), `ImageContent` (deferred, `{ type: 'image', ... }` stub), plus the `Provider` interface and `ProviderInput` type.
+- [x] `Provider.stream(input: ProviderInput): AsyncIterable<StreamEvent>` — async iterable, not Promise<array>. Streaming is the point.
+- [x] `ProviderInput` fields: `messages: unknown[]` (will be tightened in M6), `tools?: unknown[]` (same), `model: string`, `signal?: AbortSignal`. The mock ignores everything except `signal`.
+- [x] `packages/providers/src/index.ts` — re-export everything from `./types.js` and `./mock.js`.
+
+### M2.2 — Scenario file format
+
+A scenario is a JSON file describing a scripted stream. The mock reads it and replays the events with timing.
+
+- [x] `packages/providers/scenarios/README.md` — documents the format:
+  - Top-level: `{ name, description, events: [...] }`.
+  - Each event is the same shape as `StreamEvent` plus a `delayMs` field that tells the mock how long to wait _before_ emitting it.
+  - `delayMs` defaults to 0; large values (~100–500ms) simulate model latency between tokens.
+  - Events should end with a `stop` event (mock errors loudly if missing).
+- [x] Define a `ScenarioFile` type in `packages/providers/src/types.ts` so the loader is typed end-to-end.
+
+### M2.3 — MockProvider implementation
+
+- [x] `packages/providers/src/mock.ts` — `MockProvider` class implementing `Provider`.
+- [x] Constructor takes the scenario file _path_ (not the parsed object). Reads + parses with `node:fs/promises.readFile` + `JSON.parse` on first `stream()` call. (No caching: re-read each session so edits take effect.)
+- [x] `stream(input)` returns an async generator that loops over events; before each one, `await setTimeout(event.delayMs ?? 0)` from `node:timers/promises`.
+- [x] Honor `input.signal`: between every event, check `signal?.aborted` and if so, yield a final `{ type: 'stop', reason: 'aborted' }` and return.
+- [x] Validate the scenario shape at load time: missing `events`, missing terminal `stop`, or unknown event `type` should throw with a clear message including the file path.
+
+### M2.4 — Canonical scenarios
+
+These are both demo material and (later) test fixtures. Each lives at `packages/providers/scenarios/<name>.json`.
+
+- [x] `hello.json` — `thinking` status → 3-4 `text_delta` events with 50–200ms gaps → status null → `stop`. The "does the simplest thing work" scenario.
+- [x] `tool-call.json` — text intro → `tool_use_start` (`read_file`) → `tool_use_running` → `tool_use_end` with result → text follow-up → `stop`. Exercises the tool block rendering.
+- [x] `permission.json` — text intro → `tool_use_start` (`bash`) → `permission_ask` (`{ patterns: ['pnpm test *'] }`) → `stop`. Halts so the user can answer.
+- [x] `error.json` — partial text → `error` with `recoverable: true` → `stop`. Exercises §4.11.
+- [x] `compaction.json` — `compact_start` (tokens before) → wait ~1500ms → `compact_end` (tokens after) → text → `stop`. Exercises §4.14.
+
+Optional in M2, easy to add later: `long-edit.json` (multi-paragraph realistic stream), `doom-loop.json` (3× same tool call — needs the agent loop in M6 to actually detect).
+
+### M2.5 — CLI wiring (temporary stdout dumper)
+
+The CLI's M2 job: prove the provider works end-to-end before M3 wires the TUI. Anything more than this is wasted work — M3 replaces this glue.
+
+- [ ] `packages/cog/src/parser.ts` — add a `mock` string option to `CLI_OPTIONS`: `{ type: 'string', short: 'm' }`. Update help text in `help.ts`.
+- [ ] `packages/cog/src/index.ts` — when `cliFlags.mock` is set: import `MockProvider` from the `providers` package, instantiate it with the path, call `stream({ messages: [], model: 'mock', signal: undefined })`, and for-await each event, `console.log(JSON.stringify(event))`. Throwaway code; tagged with a `// TODO(M3): replace with TUI`.
+- [ ] `packages/cog/package.json` — `providers` is already a workspace dep, no change.
+
+### M2.6 — Verification
+
+- [ ] `pnpm typecheck` — green (the discriminated union should narrow correctly without `as` casts).
+- [ ] `pnpm lint` — green.
+- [ ] `pnpm build` — green.
+- [ ] `node packages/cog/bin/cli.js --mock packages/providers/scenarios/hello.json` — prints 5+ JSON event lines to stdout with visible delays between them, last line is `{"type":"stop", ...}`, exits 0.
+- [ ] Same for each other canonical scenario — `tool-call`, `permission`, `error`, `compaction`.
+- [ ] Abort smoke test: `Ctrl-C` mid-stream produces a `stop` event with `reason: "aborted"` (not a stack trace).
+
+### M2.7 — Commit
+
+- [ ] Single commit: `feat(providers): M2 StreamEvent contract + MockProvider with scripted JSON scenarios`
 
 ---
 
@@ -185,6 +247,7 @@ Goal: a `MockProvider` that reads scripted JSON scenarios and emits realistic st
 - OpenAI-compatible provider behind same interface
 - Model picker
 - Default routing: Haiku 4.5 cheap, Sonnet 4.6 mid
+- **`/login` and `/logout` slash commands** — per-provider credential flow (OAuth for Claude/Copilot, API key for OpenAI-compatible). Credentials persisted under `~/.cog/auth/<provider>.json`.
 
 ---
 

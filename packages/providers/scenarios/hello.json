@@ -1,0 +1,13 @@
+{
+  "name": "hello",
+  "description": "Simplest scenario: thinking status, short streamed reply, stop.",
+  "events": [
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 400, "type": "text_delta", "delta": "Hello! " },
+    { "delayMs": 80, "type": "text_delta", "delta": "How can I " },
+    { "delayMs": 80, "type": "text_delta", "delta": "help you " },
+    { "delayMs": 80, "type": "text_delta", "delta": "today?" },
+    { "delayMs": 100, "type": "status_change", "active": null },
+    { "delayMs": 0, "type": "stop", "reason": "finished" }
+  ]
+}

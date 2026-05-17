@@ -1,0 +1,17 @@
+{
+  "name": "error",
+  "description": "Recoverable rate-limit mid-stream: partial text, error, terminal stop with error reason. Exercises TUI §4.11.",
+  "events": [
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 400, "type": "text_delta", "delta": "Let me think about " },
+    { "delayMs": 80, "type": "text_delta", "delta": "this for a " },
+    { "delayMs": 80, "type": "text_delta", "delta": "moment..." },
+    {
+      "delayMs": 500,
+      "type": "error",
+      "message": "anthropic api error: 429 rate_limited (retry in 12s)",
+      "recoverable": true
+    },
+    { "delayMs": 0, "type": "stop", "reason": "error" }
+  ]
+}

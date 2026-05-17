@@ -1,0 +1,14 @@
+{
+  "name": "compaction",
+  "description": "Compaction kicks in before the reply: compact_start, summarization delay, compact_end, then a normal text reply, stop. Exercises TUI §4.14.",
+  "events": [
+    { "delayMs": 100, "type": "compact_start", "tokensBefore": 175000 },
+    { "delayMs": 1500, "type": "compact_end", "tokensAfter": 42000 },
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 400, "type": "text_delta", "delta": "Continuing from where we left off — " },
+    { "delayMs": 80, "type": "text_delta", "delta": "the conversation has been " },
+    { "delayMs": 80, "type": "text_delta", "delta": "summarized to free up context." },
+    { "delayMs": 100, "type": "status_change", "active": null },
+    { "delayMs": 0, "type": "stop", "reason": "finished" }
+  ]
+}

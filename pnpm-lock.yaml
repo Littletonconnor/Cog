@@ -47,7 +47,11 @@ importers:
         specifier: ^25.8.0
         version: 25.8.0
 
-  packages/providers: {}
+  packages/providers:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.8.0
+        version: 25.8.0
 
   packages/tools:
     devDependencies:

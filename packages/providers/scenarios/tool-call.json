@@ -1,0 +1,36 @@
+{
+  "name": "tool-call",
+  "description": "Full tool block lifecycle: brief text, tool_use_start, tool_use_end, follow-up text, stop. Exercises TUI §4.4–§4.5.",
+  "events": [
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 400, "type": "text_delta", "delta": "Let me check the README first." },
+    { "delayMs": 200, "type": "status_change", "active": "read_file" },
+    {
+      "delayMs": 150,
+      "type": "tool_use_start",
+      "id": "tool_01",
+      "name": "read_file",
+      "input": { "path": "README.md" }
+    },
+    {
+      "delayMs": 800,
+      "type": "tool_use_end",
+      "id": "tool_01",
+      "result": [
+        {
+          "type": "text",
+          "text": "# Cog\n\nA minimal coding agent. Built from scratch in TypeScript, with as few external dependencies as possible. Lives in your terminal.\n"
+        }
+      ],
+      "isError": false
+    },
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 300, "type": "text_delta", "delta": "Got it. " },
+    { "delayMs": 80, "type": "text_delta", "delta": "The README " },
+    { "delayMs": 80, "type": "text_delta", "delta": "describes Cog " },
+    { "delayMs": 80, "type": "text_delta", "delta": "as a minimal " },
+    { "delayMs": 80, "type": "text_delta", "delta": "coding agent." },
+    { "delayMs": 100, "type": "status_change", "active": null },
+    { "delayMs": 0, "type": "stop", "reason": "finished" }
+  ]
+}

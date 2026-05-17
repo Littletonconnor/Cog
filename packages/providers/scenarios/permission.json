@@ -1,0 +1,34 @@
+{
+  "name": "permission",
+  "description": "Tool requires user approval: text intro, tool_use_start, permission_ask, assumed approval, tool_use_end, follow-up text, stop. Exercises TUI §4.7.",
+  "events": [
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 400, "type": "text_delta", "delta": "I'll run the test suite to verify." },
+    { "delayMs": 200, "type": "status_change", "active": "bash" },
+    {
+      "delayMs": 150,
+      "type": "tool_use_start",
+      "id": "tool_01",
+      "name": "bash",
+      "input": { "cmd": "pnpm test" }
+    },
+    {
+      "delayMs": 100,
+      "type": "permission_ask",
+      "id": "tool_01",
+      "prompt": "Allow bash command: pnpm test",
+      "patterns": ["pnpm test *"]
+    },
+    {
+      "delayMs": 1500,
+      "type": "tool_use_end",
+      "id": "tool_01",
+      "result": [{ "type": "text", "text": "All tests passed (12/12)." }],
+      "isError": false
+    },
+    { "delayMs": 200, "type": "status_change", "active": "thinking" },
+    { "delayMs": 300, "type": "text_delta", "delta": "All tests pass." },
+    { "delayMs": 100, "type": "status_change", "active": null },
+    { "delayMs": 0, "type": "stop", "reason": "finished" }
+  ]
+}
