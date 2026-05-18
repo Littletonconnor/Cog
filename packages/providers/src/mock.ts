@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { Provider, ProviderInput, ScenarioFile, StreamEvent } from './types.js';
+import type { Provider, ProviderInput, ScenarioFile, StreamEvent } from './types.js';
 
 export class MockProvider implements Provider {
   constructor(private readonly filePath: string) {}

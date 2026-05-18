@@ -1,13 +1,27 @@
+import { MockProvider } from 'providers';
 import { printHelpMessage } from './help.js';
 import { cli } from './parser.js';
 
-export function main() {
+export async function main() {
   try {
     const { values: cliFlags } = cli();
     const hasFlags = Object.values(cliFlags).some((v) => v);
 
     if (cliFlags.help || !hasFlags) {
       printHelpMessage();
+    } else if (cliFlags.mock) {
+      // TODO: eventually replace with TUI
+      const controller = new AbortController();
+      process.once('SIGINT', () => controller.abort());
+      const mockProvider = new MockProvider(cliFlags.mock);
+      const events = mockProvider.stream({
+        messages: [],
+        model: 'mock',
+        signal: controller.signal,
+      });
+      for await (const event of events) {
+        console.log(JSON.stringify(event));
+      }
     }
   } catch (error: unknown) {
     console.error(error);

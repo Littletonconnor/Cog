@@ -164,18 +164,18 @@ Optional in M2, easy to add later: `long-edit.json` (multi-paragraph realistic s
 
 The CLI's M2 job: prove the provider works end-to-end before M3 wires the TUI. Anything more than this is wasted work — M3 replaces this glue.
 
-- [ ] `packages/cog/src/parser.ts` — add a `mock` string option to `CLI_OPTIONS`: `{ type: 'string', short: 'm' }`. Update help text in `help.ts`.
-- [ ] `packages/cog/src/index.ts` — when `cliFlags.mock` is set: import `MockProvider` from the `providers` package, instantiate it with the path, call `stream({ messages: [], model: 'mock', signal: undefined })`, and for-await each event, `console.log(JSON.stringify(event))`. Throwaway code; tagged with a `// TODO(M3): replace with TUI`.
-- [ ] `packages/cog/package.json` — `providers` is already a workspace dep, no change.
+- [x] `packages/cog/src/parser.ts` — add a `mock` string option to `CLI_OPTIONS`: `{ type: 'string', short: 'm' }`. Update help text in `help.ts`.
+- [x] `packages/cog/src/index.ts` — when `cliFlags.mock` is set: import `MockProvider` from the `providers` package, instantiate it with the path, call `stream({ messages: [], model: 'mock', signal: undefined })`, and for-await each event, `console.log(JSON.stringify(event))`. Throwaway code; tagged with a `// TODO(M3): replace with TUI`.
+- [x] `packages/cog/package.json` — `providers` is already a workspace dep, no change.
 
 ### M2.6 — Verification
 
-- [ ] `pnpm typecheck` — green (the discriminated union should narrow correctly without `as` casts).
-- [ ] `pnpm lint` — green.
-- [ ] `pnpm build` — green.
-- [ ] `node packages/cog/bin/cli.js --mock packages/providers/scenarios/hello.json` — prints 5+ JSON event lines to stdout with visible delays between them, last line is `{"type":"stop", ...}`, exits 0.
-- [ ] Same for each other canonical scenario — `tool-call`, `permission`, `error`, `compaction`.
-- [ ] Abort smoke test: `Ctrl-C` mid-stream produces a `stop` event with `reason: "aborted"` (not a stack trace).
+- [x] `pnpm typecheck` — green (the discriminated union should narrow correctly without `as` casts).
+- [x] `pnpm lint` — green.
+- [x] `pnpm build` — green.
+- [x] `node packages/cog/bin/cli.js --mock packages/providers/scenarios/hello.json` — prints 5+ JSON event lines to stdout with visible delays between them, last line is `{"type":"stop", ...}`, exits 0.
+- [x] Same for each other canonical scenario — `tool-call`, `permission`, `error`, `compaction`.
+- [x] Abort smoke test: `Ctrl-C` mid-stream produces a `stop` event with `reason: "aborted"` (not a stack trace).
 
 ### M2.7 — Commit
 
