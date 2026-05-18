@@ -187,7 +187,7 @@ The CLI's M2 job: prove the provider works end-to-end before M3 wires the TUI. A
 
 Goal: a real terminal UI that consumes `StreamEvent`s from `MockProvider` and renders them per `docs/TUI-DESIGN.md`. The throwaway stdout dumper from M2.5 gets replaced. By the end of M3, `cog --mock <path>` opens a TUI, plays the scenario with proper colors and layout, and exits cleanly on Esc / Ctrl-C.
 
-**Scope discipline:** M3 is the *bare* TUI. Single-line input, no slash commands, no mouse, no themes besides default, no $EDITOR mode, no scrollback. All of that is M4 polish. If a feature isn't required to render one of the 5 canonical scenarios end-to-end, it doesn't belong in M3.
+**Scope discipline:** M3 is the _bare_ TUI. Single-line input, no slash commands, no mouse, no themes besides default, no $EDITOR mode, no scrollback. All of that is M4 polish. If a feature isn't required to render one of the 5 canonical scenarios end-to-end, it doesn't belong in M3.
 
 **Exit criteria:** every one of the 5 scenarios in `packages/providers/scenarios/` (`hello`, `tool-call`, `permission`, `error`, `compaction`) renders with the right visual treatment per the design doc, and Esc cleanly aborts mid-stream.
 
@@ -197,11 +197,11 @@ This milestone is the biggest one yet — budget ~3–5 days. The order below is
 
 Low-level wrapping around `process.stdin` / `process.stdout`. Single file, ~150 LOC target.
 
-- [ ] `packages/tui/src/terminal.ts` — owns raw mode lifecycle, ANSI escape helpers, and width detection.
-- [ ] Raw-mode entry/exit functions. Restore the terminal on **any** exit (normal, SIGINT, SIGTERM, uncaught exception) so a crash never leaves the user with a broken shell.
-- [ ] ANSI helpers as small inline functions: `cursorTo(row, col)`, `clearLine()`, `hideCursor()`, `showCursor()`, `altScreenEnter()`, `altScreenExit()`, `syncOutputStart()` / `syncOutputEnd()` (the `\x1b[?2026h` / `\x1b[?2026l` wrapper).
-- [ ] Width / height: read once from `process.stdout.columns/rows` plus a `resize` event listener that re-renders on next tick.
-- [ ] Refuse to start if width < 60 cols (per `TUI-DESIGN.md §8`): print the error to stderr and exit 1.
+- [x] `packages/tui/src/terminal.ts` — owns raw mode lifecycle, ANSI escape helpers, and width detection.
+- [x] Raw-mode entry/exit functions. Restore the terminal on **any** exit (normal, SIGINT, SIGTERM, uncaught exception) so a crash never leaves the user with a broken shell.
+- [x] ANSI helpers as small inline functions: `cursorTo(row, col)`, `clearLine()`, `hideCursor()`, `showCursor()`, `altScreenEnter()`, `altScreenExit()`, `syncOutputStart()` / `syncOutputEnd()` (the `\x1b[?2026h` / `\x1b[?2026l` wrapper).
+- [x] Width / height: read once from `process.stdout.columns/rows` plus a `resize` event listener that re-renders on next tick.
+- [x] Refuse to start if width < 60 cols (per `TUI-DESIGN.md §8`): print the error to stderr and exit 1.
 
 ### M3.2 — Theme module
 
@@ -255,7 +255,7 @@ Pulls everything together into one class that's easy to use from `cog`.
 
 ### M3.7 — Event-to-state mapping
 
-This is what makes the TUI a *real* consumer of the streaming contract. Lives inside `TUI.handleEvent()`.
+This is what makes the TUI a _real_ consumer of the streaming contract. Lives inside `TUI.handleEvent()`.
 
 For each `StreamEvent` variant:
 
