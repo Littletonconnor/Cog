@@ -179,7 +179,7 @@ The CLI's M2 job: prove the provider works end-to-end before M3 wires the TUI. A
 
 ### M2.7 — Commit
 
-- [ ] Single commit: `feat(providers): M2 StreamEvent contract + MockProvider with scripted JSON scenarios`
+- [x] Single commit: `feat(providers): M2 StreamEvent contract + MockProvider with scripted JSON scenarios`
 
 ---
 
