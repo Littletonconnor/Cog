@@ -1,8 +1,8 @@
 # Cog — TODO
 
-> **Current milestone: M2 — StreamEvent contract + mock provider.**
+> **Current milestone: M3 — Bare TUI against the mock.**
 > Work top to bottom. Check items as you complete them.
-> M0 and M1 are done.
+> M0, M1, and M2 are done.
 
 ---
 
@@ -185,7 +185,119 @@ The CLI's M2 job: prove the provider works end-to-end before M3 wires the TUI. A
 
 ## M3 — Bare TUI against the mock
 
-(Detailed checklist drops after M2.)
+Goal: a real terminal UI that consumes `StreamEvent`s from `MockProvider` and renders them per `docs/TUI-DESIGN.md`. The throwaway stdout dumper from M2.5 gets replaced. By the end of M3, `cog --mock <path>` opens a TUI, plays the scenario with proper colors and layout, and exits cleanly on Esc / Ctrl-C.
+
+**Scope discipline:** M3 is the *bare* TUI. Single-line input, no slash commands, no mouse, no themes besides default, no $EDITOR mode, no scrollback. All of that is M4 polish. If a feature isn't required to render one of the 5 canonical scenarios end-to-end, it doesn't belong in M3.
+
+**Exit criteria:** every one of the 5 scenarios in `packages/providers/scenarios/` (`hello`, `tool-call`, `permission`, `error`, `compaction`) renders with the right visual treatment per the design doc, and Esc cleanly aborts mid-stream.
+
+This milestone is the biggest one yet — budget ~3–5 days. The order below is the recommended build order; later items depend on earlier ones.
+
+### M3.1 — Terminal primitives
+
+Low-level wrapping around `process.stdin` / `process.stdout`. Single file, ~150 LOC target.
+
+- [ ] `packages/tui/src/terminal.ts` — owns raw mode lifecycle, ANSI escape helpers, and width detection.
+- [ ] Raw-mode entry/exit functions. Restore the terminal on **any** exit (normal, SIGINT, SIGTERM, uncaught exception) so a crash never leaves the user with a broken shell.
+- [ ] ANSI helpers as small inline functions: `cursorTo(row, col)`, `clearLine()`, `hideCursor()`, `showCursor()`, `altScreenEnter()`, `altScreenExit()`, `syncOutputStart()` / `syncOutputEnd()` (the `\x1b[?2026h` / `\x1b[?2026l` wrapper).
+- [ ] Width / height: read once from `process.stdout.columns/rows` plus a `resize` event listener that re-renders on next tick.
+- [ ] Refuse to start if width < 60 cols (per `TUI-DESIGN.md §8`): print the error to stderr and exit 1.
+
+### M3.2 — Theme module
+
+The role-based color lookup that `docs/TUI-DESIGN.md §2.1` requires.
+
+- [ ] `packages/tui/src/theme/index.ts` — exports a `Theme` interface with methods like `fg(role): string`, `bg(role): string`, `reset(): string`, `bold(): string`, `italic(): string`, `dim(): string`.
+- [ ] Role names match the design exactly: `default`, `dim`, `accent`, `success`, `danger`, `warning`, `user-bg`.
+- [ ] `packages/tui/src/theme/default.ts` — the only theme in v1. Maps each role to an ANSI escape per the table in `TUI-DESIGN.md §2.1`.
+- [ ] Pure functions, no global state. The renderer passes a `theme` reference into each component when calling `render`.
+
+### M3.3 — Differential renderer
+
+The heart of the TUI. Single file, ~300 LOC target. Mirrors pi-tui's approach (see `docs/pi-reference.md §7`).
+
+- [ ] `packages/tui/src/renderer.ts` — exports a `Renderer` class and a `Component` interface.
+- [ ] `Component` interface: a single `render(width: number, theme: Theme): string[]` method returning one styled line per array element.
+- [ ] `Renderer` constructor takes a `Terminal` (from M3.1) and a `Theme`.
+- [ ] `Renderer.mount(rootComponent)` and `Renderer.scheduleRedraw()` — coalesces redraws to one per 16ms tick.
+- [ ] Diff loop: keep `previousLines: string[]`, compute new lines, find first and last changed index, emit ANSI cursor-positioning + line-clear + new content only for the changed range.
+- [ ] Wrap each frame in `syncOutputStart()` / `syncOutputEnd()` so terminals that support synchronized output commit atomically.
+- [ ] No layout helpers (no flexbox, no grids). Components handle their own wrapping at the given `width`.
+
+### M3.4 — Key parsing
+
+Just enough to handle the keys M3 actually uses. Defer mouse, kitty, bracketed paste to M4.
+
+- [ ] `packages/tui/src/keys.ts` — exports a `KeyEvent` discriminated union and a `parseInput(chunk: Buffer): KeyEvent[]` function.
+- [ ] Variants needed for M3: `{ type: 'char', value: string }`, `{ type: 'enter' }`, `{ type: 'esc' }`, `{ type: 'ctrl-c' }`, `{ type: 'backspace' }`, `{ type: 'arrow', dir: 'up' | 'down' | 'left' | 'right' }`. That's it.
+- [ ] Stdin reader: `terminal.onKey((event) => ...)`. Handles batched escape sequences with a small timeout (10ms) so e.g. `Esc` vs `Alt+x` are distinguishable.
+
+### M3.5 — Components
+
+One file per component under `packages/tui/src/components/`. Each implements the `Component` interface from M3.3. ~100 LOC each.
+
+- [ ] `components/transcript.ts` — the scrolling chat area. Owns a list of "blocks" (user message, assistant message, tool call, permission prompt, error). Each block renders its own lines; the transcript concatenates them with appropriate spacing. Per `TUI-DESIGN.md §2.3`, user messages render with `theme.bg('user-bg')` padded to full width; assistant messages render plain.
+- [ ] `components/input-box.ts` — single-line bordered box. Renders `┌─...─┐` top, `│ > <text>▌ │` middle, `└─...─┘` bottom. Owns cursor position. M3 supports basic typing (char insert, backspace, arrows for cursor nav). No Shift+Enter / multi-line yet.
+- [ ] `components/status-bar.ts` — two rows. Top: working directory left, model name right. Bottom: token count + cost left. Per `TUI-DESIGN.md §5`.
+- [ ] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
+- [ ] `components/permission-prompt.ts` — the inline approval block (`TUI-DESIGN.md §4.7`). Renders inside the transcript when a `permission_ask` event fires; captures `y/a/n/N` keys; resolves a promise the event reducer is awaiting.
+
+### M3.6 — TUI orchestration
+
+Pulls everything together into one class that's easy to use from `cog`.
+
+- [ ] `packages/tui/src/index.ts` — exports a `TUI` class.
+- [ ] `new TUI()` builds the root component tree (transcript at top, activity line, input box, status bar).
+- [ ] `tui.start()` enters alt screen, hides cursor, attaches stdin handler, kicks off the render loop.
+- [ ] `tui.stop()` exits alt screen, shows cursor, detaches handlers, restores raw mode.
+- [ ] `tui.handleEvent(event: StreamEvent)` — the bridge between the provider stream and the components (see §M3.7).
+- [ ] Re-export `Component`, `Theme`, `KeyEvent` for downstream packages.
+
+### M3.7 — Event-to-state mapping
+
+This is what makes the TUI a *real* consumer of the streaming contract. Lives inside `TUI.handleEvent()`.
+
+For each `StreamEvent` variant:
+
+- [ ] `text_delta` → append `delta` to the current streaming assistant block in the transcript. If no current block, create one.
+- [ ] `tool_use_start` → push a new tool block to the transcript with status `running`. Store the `id` for later lookup.
+- [ ] `tool_use_running` → optional `partialOutput` updates the existing tool block.
+- [ ] `tool_use_end` → finalize the tool block: store `result`, render in success or danger color based on `isError`. Collapse to first 3 lines by default per `TUI-DESIGN.md §4.5`.
+- [ ] `permission_ask` → render the permission prompt block; await the user's single-key answer (the input box is dimmed while pending).
+- [ ] `status_change` → update the activity line's label. `active: null` → hide the line entirely.
+- [ ] `error` → render an error block in danger color (`TUI-DESIGN.md §4.11`).
+- [ ] `compact_start` → set the status bar's top-row indicator to `⋯ compacting` in warning color.
+- [ ] `compact_end` → clear the compacting indicator; update token count from `tokensAfter`.
+- [ ] `stop` → flush any in-flight streaming block. Caller (the for-await in cog) breaks out of the loop after this event.
+
+### M3.8 — Wire mock to TUI in `cog`
+
+Replace the M2.5 stdout dumper. ~20 lines of work.
+
+- [ ] Delete the `console.log(JSON.stringify(event))` block in `packages/cog/src/index.ts` and the `TODO(M3)` comment above it.
+- [ ] Add `cog-tui` (or `tui`, depending on your final package name) as a workspace dependency in `packages/cog/package.json` if it isn't already.
+- [ ] Import the `TUI` class. Inside the `else if (cliFlags.mock)` branch:
+  1. `const tui = new TUI()` then `tui.start()`.
+  2. Wire the existing `AbortController` so Esc inside the TUI calls `controller.abort()` (in addition to the SIGINT listener).
+  3. `for await (const event of events) tui.handleEvent(event)`.
+  4. `tui.stop()` after the loop (in `finally`).
+
+### M3.9 — Verification (don't move on until all pass)
+
+- [ ] `pnpm typecheck` — green.
+- [ ] `pnpm check` — green.
+- [ ] `pnpm build` — green; `packages/tui/dist/` exists.
+- [ ] **Visual:** `cog --mock packages/providers/scenarios/hello.json` — text streams with the right styling, status bar reads `model=mock`, transcript clears on exit.
+- [ ] **Visual:** `tool-call.json` — tool block renders with `↳ read_file` prefix, collapses to 3 lines.
+- [ ] **Visual:** `permission.json` — inline `[y]/[a]/[n]/[N]` prompt appears mid-transcript; input box is dimmed while waiting.
+- [ ] **Visual:** `error.json` — error block in red with `r/q` shortcuts visible.
+- [ ] **Visual:** `compaction.json` — `⋯ compacting` indicator appears in status bar top row, disappears when `compact_end` fires.
+- [ ] **Abort:** start a long scenario, press Esc — last block is the aborted-stop, terminal restored cleanly, no orphaned ANSI codes in the parent shell.
+- [ ] **Crash test:** introduce a deliberate throw inside the for-await loop, hit it, confirm terminal restores. Then revert the throw.
+
+### M3.10 — Commit
+
+- [ ] Single commit: `feat(tui): M3 bare TUI consuming StreamEvents from MockProvider`
 
 ---
 
