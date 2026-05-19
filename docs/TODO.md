@@ -207,10 +207,10 @@ Low-level wrapping around `process.stdin` / `process.stdout`. Single file, ~150 
 
 The role-based color lookup that `docs/TUI-DESIGN.md §2.1` requires.
 
-- [ ] `packages/tui/src/theme/index.ts` — exports a `Theme` interface with methods like `fg(role): string`, `bg(role): string`, `reset(): string`, `bold(): string`, `italic(): string`, `dim(): string`.
-- [ ] Role names match the design exactly: `default`, `dim`, `accent`, `success`, `danger`, `warning`, `user-bg`.
-- [ ] `packages/tui/src/theme/default.ts` — the only theme in v1. Maps each role to an ANSI escape per the table in `TUI-DESIGN.md §2.1`.
-- [ ] Pure functions, no global state. The renderer passes a `theme` reference into each component when calling `render`.
+- [x] `packages/tui/src/theme/index.ts` — exports a `Theme` interface with methods like `fg(role): string`, `bg(role): string`, `reset(): string`, `bold(): string`, `italic(): string`, `dim(): string`.
+- [x] Role names match the design exactly: `default`, `dim`, `accent`, `success`, `danger`, `warning`, `user-bg`.
+- [x] `packages/tui/src/theme/default.ts` — the only theme in v1. Maps each role to an ANSI escape per the table in `TUI-DESIGN.md §2.1`.
+- [x] Pure functions, no global state. The renderer passes a `theme` reference into each component when calling `render`.
 
 ### M3.3 — Differential renderer
 

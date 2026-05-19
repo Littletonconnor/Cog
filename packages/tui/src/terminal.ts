@@ -8,6 +8,8 @@
  * @see docs/TUI-DESIGN.md §7 (animation / redraw policy) and §8 (width handling).
  */
 
+import { KeyEvent, parseInput } from "./keys.js";
+
 const ESC = "\x1b[";
 
 /** Fallback width when stdout isn't a TTY (e.g. output is piped). */
@@ -174,6 +176,26 @@ export function onResize(
   const handler = () => callback(dimensions());
   process.stdout.on("resize", handler);
   return () => process.stdout.off("resize", handler);
+}
+
+/**
+  * Subscribe to parsed key events from stdin. Requires raw mode to be
+  active * so keystrokes arrive as individual buffers rather than line-buffered input.
+  *
+  * Each `data` chunk is fed through `parseInput()` which may yield multiple
+  * `KeyEvent`s (e.g. pasted text). The callback fires once per event.
+  *
+  * Returns an unsubscribe function — call it during teardown.
+*/
+export function onKey(callback: (event: KeyEvent) => void) {
+  const handler = (chunk: Buffer) => {
+    for (const event of parseInput(chunk)) {
+      callback(event);
+    }
+  };
+
+  process.stdin.on("data", handler);
+  return () => process.stdin.off("data", handler);
 }
 
 const cleanupTasks: Array<() => void> = [];
