@@ -8,9 +8,9 @@
  * @see docs/TUI-DESIGN.md §7 (animation / redraw policy) and §8 (width handling).
  */
 
-import { KeyEvent, parseInput } from "./keys.js";
+import { type KeyEvent, parseInput } from './keys.js';
 
-const ESC = "\x1b[";
+const ESC = '\x1b[';
 
 /** Fallback width when stdout isn't a TTY (e.g. output is piped). */
 const COLUMNS = 80;
@@ -27,7 +27,7 @@ const ROWS = 24;
 export function setupTerminal() {
   const { columns } = dimensions();
   if (columns < 60) {
-    process.stderr.write("cog needs a terminal at least 60 cols wide\n");
+    process.stderr.write('cog needs a terminal at least 60 cols wide\n');
     process.exit(1);
   }
 
@@ -134,7 +134,7 @@ export function altScreenExit() {
  */
 export function enterRawMode() {
   if (!process.stdin.isTTY) {
-    throw new Error("cog requires a TTY (raw mode unavailable)");
+    throw new Error('cog requires a TTY (raw mode unavailable)');
   }
 
   process.stdin.setRawMode(true);
@@ -170,12 +170,10 @@ export function dimensions() {
  * Returns an unsubscribe function — call it during teardown so the listener
  * doesn't outlive the TUI session.
  */
-export function onResize(
-  callback: (dimensions: { columns: number; rows: number }) => void,
-) {
+export function onResize(callback: (dimensions: { columns: number; rows: number }) => void) {
   const handler = () => callback(dimensions());
-  process.stdout.on("resize", handler);
-  return () => process.stdout.off("resize", handler);
+  process.stdout.on('resize', handler);
+  return () => process.stdout.off('resize', handler);
 }
 
 /**
@@ -194,8 +192,8 @@ export function onKey(callback: (event: KeyEvent) => void) {
     }
   };
 
-  process.stdin.on("data", handler);
-  return () => process.stdin.off("data", handler);
+  process.stdin.on('data', handler);
+  return () => process.stdin.off('data', handler);
 }
 
 const cleanupTasks: Array<() => void> = [];
@@ -240,17 +238,26 @@ export function runCleanup() {
  * `process.once("SIGINT", ...)`, `"SIGTERM"`, and `"uncaughtException"`
  * listeners that call `runCleanup` before exiting.
  */
-process.once("exit", runCleanup);
-process.once("SIGINT", () => {
+process.once('exit', runCleanup);
+process.once('SIGINT', () => {
   runCleanup();
   process.exit(130);
 });
-process.once("SIGTERM", () => {
+process.once('SIGTERM', () => {
   runCleanup();
   process.exit(143);
 });
-process.once("uncaughtException", (error) => {
+process.once('uncaughtException', (error) => {
   runCleanup();
   console.error(error);
   process.exit(143);
 });
+
+export type TerminalHandle = {
+  write: (s: string) => void;
+  cursorTo: (row: number, col: number) => void;
+  clearLine: () => void;
+  syncOutputStart: () => void;
+  syncOutputEnd: () => void;
+  dimensions: () => { columns: number; rows: number };
+};

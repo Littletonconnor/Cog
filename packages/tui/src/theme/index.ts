@@ -1,12 +1,6 @@
-export type FgRole =
-  | "default"
-  | "dim"
-  | "accent"
-  | "success"
-  | "danger"
-  | "warning";
+export type FgRole = 'default' | 'dim' | 'accent' | 'success' | 'danger' | 'warning';
 
-export type BgRole = "user-bg";
+export type BgRole = 'user-bg';
 
 export interface Theme {
   fg: (role: FgRole) => string;

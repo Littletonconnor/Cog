@@ -216,13 +216,13 @@ The role-based color lookup that `docs/TUI-DESIGN.md §2.1` requires.
 
 The heart of the TUI. Single file, ~300 LOC target. Mirrors pi-tui's approach (see `docs/pi-reference.md §7`).
 
-- [ ] `packages/tui/src/renderer.ts` — exports a `Renderer` class and a `Component` interface.
-- [ ] `Component` interface: a single `render(width: number, theme: Theme): string[]` method returning one styled line per array element.
-- [ ] `Renderer` constructor takes a `Terminal` (from M3.1) and a `Theme`.
+- [x] `packages/tui/src/renderer.ts` — exports a `Renderer` class and a `Component` interface.
+- [x] `Component` interface: a single `render(width: number, theme: Theme): string[]` method returning one styled line per array element.
+- [x] `Renderer` constructor takes a `Terminal` (from M3.1) and a `Theme`.
 - [ ] `Renderer.mount(rootComponent)` and `Renderer.scheduleRedraw()` — coalesces redraws to one per 16ms tick.
-- [ ] Diff loop: keep `previousLines: string[]`, compute new lines, find first and last changed index, emit ANSI cursor-positioning + line-clear + new content only for the changed range.
-- [ ] Wrap each frame in `syncOutputStart()` / `syncOutputEnd()` so terminals that support synchronized output commit atomically.
-- [ ] No layout helpers (no flexbox, no grids). Components handle their own wrapping at the given `width`.
+- [x] Diff loop: keep `previousLines: string[]`, compute new lines, find first and last changed index, emit ANSI cursor-positioning + line-clear + new content only for the changed range.
+- [x] Wrap each frame in `syncOutputStart()` / `syncOutputEnd()` so terminals that support synchronized output commit atomically.
+- [x] No layout helpers (no flexbox, no grids). Components handle their own wrapping at the given `width`.
 
 ### M3.4 — Key parsing
 

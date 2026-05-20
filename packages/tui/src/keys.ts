@@ -1,23 +1,23 @@
 export type KeyEvent =
   | {
-      type: "char";
+      type: 'char';
       value: string;
     }
   | {
-      type: "enter";
+      type: 'enter';
     }
   | {
-      type: "esc";
+      type: 'esc';
     }
   | {
-      type: "ctrl-c";
+      type: 'ctrl-c';
     }
   | {
-      type: "backspace";
+      type: 'backspace';
     }
   | {
-      type: "arrow";
-      dir: "up" | "down" | "left" | "right";
+      type: 'arrow';
+      dir: 'up' | 'down' | 'left' | 'right';
     };
 
 /**
@@ -51,44 +51,44 @@ export function parseInput(chunk: Buffer): KeyEvent[] {
   let i = 0;
 
   while (i < chunk.length) {
-    const byte = chunk[i]!;
+    const byte = chunk[i];
 
     if (byte === 0x03) {
-      events.push({ type: "ctrl-c" });
+      events.push({ type: 'ctrl-c' });
       i++;
     } else if (byte === 0x0d) {
-      events.push({ type: "enter" });
+      events.push({ type: 'enter' });
       i++;
     } else if (byte === 0x7f) {
-      events.push({ type: "backspace" });
+      events.push({ type: 'backspace' });
       i++;
     } else if (byte === 0x1b) {
       if (chunk[i + 1] === 0x5b) {
         const arrow = chunk[i + 2];
         if (arrow === 0x41) {
-          events.push({ type: "arrow", dir: "up" });
+          events.push({ type: 'arrow', dir: 'up' });
           i += 3;
         } else if (arrow === 0x42) {
-          events.push({ type: "arrow", dir: "down" });
+          events.push({ type: 'arrow', dir: 'down' });
           i += 3;
         } else if (arrow === 0x43) {
-          events.push({ type: "arrow", dir: "right" });
+          events.push({ type: 'arrow', dir: 'right' });
           i += 3;
         } else if (arrow === 0x44) {
-          events.push({ type: "arrow", dir: "left" });
+          events.push({ type: 'arrow', dir: 'left' });
           i += 3;
         } else {
-          events.push({ type: "esc" });
+          events.push({ type: 'esc' });
           i++;
         }
       } else {
-        events.push({ type: "esc" });
+        events.push({ type: 'esc' });
         i++;
       }
     } else if (byte >= 0x20) {
       const len = byte < 0x80 ? 1 : byte < 0xe0 ? 2 : byte < 0xf0 ? 3 : 4;
-      const value = chunk.toString("utf8", i, i + len);
-      events.push({ type: "char", value });
+      const value = chunk.toString('utf8', i, i + len);
+      events.push({ type: 'char', value });
       i += len;
     } else {
       i++;
