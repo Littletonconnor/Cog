@@ -183,8 +183,8 @@ Three regions, top to bottom:
   blank (no jitter when activity starts/stops).
 - **Input box** — single line by default, grows up when multi-line.
 - **Status bar** — **two rows** at the bottom:
-  - **Top row:** working directory (left) · model name (right).
-  - **Bottom row:** token count · cost (left).
+  - **Top row:** working directory (left), full width.
+  - **Bottom row:** context usage (left) · model name + thinking state (right).
 
 The transcript auto-scrolls so the **latest output is always visible**
 unless the user has scrolled up explicitly.
@@ -577,36 +577,91 @@ Plain text. Reads like a man page.
 
 ## 5. Status bar spec
 
-**Two rows**, always visible at the bottom, no border.
+**Two rows**, always visible at the bottom, no border. Inspired by pi's
+status bar — see `~/oss/pi` for the reference implementation.
 
 ```
- ~/projects/cog                                          haiku-4-5
- 1.2k tokens · $0.001
+ ~/projects/cog
+ 5.5%/200k (auto)                            haiku-4-5 • thinking off
 ```
 
 ### Top row
 
-- **Left:** working directory, tilde-expanded.
-- **Right:** model id (right-aligned, flush to terminal width).
-- (Compaction indicator slots in between when active — see §4.14.)
+- **Left:** working directory, tilde-expanded. Spans the full width.
+- (Compaction indicator slots in here when active — see §4.14.)
+- (Git branch parenthetical deferred — pi shows `(main)`, we'll add it in
+  M4 polish.)
 
 ### Bottom row
 
-- **Left:** `<n>k tokens · $<cost>`. Updates after each model call.
-- Separator: ` · ` in dim.
+Two halves, separated by padding:
+
+- **Left:** context usage in the form `<pct>%/<window>k (<mode>)`.
+  - `<pct>` — percentage of context window used, one decimal (e.g. `5.5`).
+  - `<window>` — model's context window in `k`-rounded form (e.g. `200k`).
+  - `<mode>` — compaction mode: `auto` (default) or `manual`. Static
+    literal until M9 wires it to real config.
+- **Right:** `<model-id> • thinking <on|off>` (right-aligned, flush to
+  terminal width).
+  - `<model-id>` — the canonical id (e.g. `haiku-4-5`, `sonnet-4-6`).
+  - `thinking on|off` — extended-thinking toggle. Static literal until
+    M5+ wires it to the real provider.
+- Bullet separator: ` • ` (U+2022) in dim.
+
+All numeric values come from the most recent model usage; render zeros
+before the first model call (`0.0%/200k (auto)`).
 
 ### Width-aware truncation
 
-- Working directory truncates from the **left** at narrow widths
-  (`~/.../cog`) so the basename stays visible.
-- Model name on the top row is the last thing to truncate
-  (`haiku-4-5` → `haiku`).
+- Working directory (top row) truncates from the **left** at narrow
+  widths (`~/.../cog`) so the basename stays visible.
+- If the bottom row's left half + right half + minimum 2-space gap
+  exceeds the terminal width, drop the ` • thinking <state>` suffix
+  first, then truncate the model id from the **right** (`haiku-4-5` →
+  `haiku`).
 
 ### Color rules
 
-- Default text color for content.
-- **Dim** for separators (`·`) and the `tokens` / `$` labels.
+- **Dim** for the whole status bar by default — it's secondary chrome,
+  not focal content.
+- **Default** color for the cwd basename so it stays readable.
+- **Dim** for separators (`·`, `•`), labels (`%`, `k`), and parenthetical
+  state (`(auto)`).
 - **Warning** for activity injected into the top row (`⋯ compacting`).
+
+### Implementation sketch
+
+```
+StatusBar implements Component {
+  constructor(
+    cwd: string,
+    model: string,
+    contextWindow: number,  // e.g. 200_000
+    tokensUsed: number,     // e.g. 11_000
+    mode: 'auto' | 'manual',
+    thinking: boolean,
+  )
+
+  render(width, theme): string[] {
+    const top = truncateLeft(cwd, width);
+    const left = `${pct(tokensUsed, contextWindow)}/${kFmt(contextWindow)} (${mode})`;
+    const right = `${model} • thinking ${thinking ? 'on' : 'off'}`;
+    const bottom = padBetween(left, right, width);
+    return [
+      theme.dim() + top + theme.reset(),
+      theme.dim() + bottom + theme.reset(),
+    ];
+  }
+}
+```
+
+Helpers you'll need:
+
+- `pct(used, total)` → `"5.5%"` (one decimal, no trailing zero strip).
+- `kFmt(n)` → `"200k"` (round to nearest k, no decimals).
+- `truncateLeft(str, max)` → `"~/.../cog"` if too long, else `str`.
+- `padBetween(left, right, width)` → `left` then spaces then `right`,
+  with truncation fallback (see "Width-aware truncation" above).
 
 ---
 
