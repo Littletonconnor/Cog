@@ -219,7 +219,7 @@ The heart of the TUI. Single file, ~300 LOC target. Mirrors pi-tui's approach (s
 - [x] `packages/tui/src/renderer.ts` — exports a `Renderer` class and a `Component` interface.
 - [x] `Component` interface: a single `render(width: number, theme: Theme): string[]` method returning one styled line per array element.
 - [x] `Renderer` constructor takes a `Terminal` (from M3.1) and a `Theme`.
-- [ ] `Renderer.mount(rootComponent)` and `Renderer.scheduleRedraw()` — coalesces redraws to one per 16ms tick.
+- [x] `Renderer.mount(rootComponent)` and `Renderer.scheduleRedraw()` — coalesces redraws to one per 16ms tick.
 - [x] Diff loop: keep `previousLines: string[]`, compute new lines, find first and last changed index, emit ANSI cursor-positioning + line-clear + new content only for the changed range.
 - [x] Wrap each frame in `syncOutputStart()` / `syncOutputEnd()` so terminals that support synchronized output commit atomically.
 - [x] No layout helpers (no flexbox, no grids). Components handle their own wrapping at the given `width`.
