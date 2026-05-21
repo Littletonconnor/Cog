@@ -238,8 +238,8 @@ One file per component under `packages/tui/src/components/`. Each implements the
 
 - [ ] `components/transcript.ts` — the scrolling chat area. Owns a list of "blocks" (user message, assistant message, tool call, permission prompt, error). Each block renders its own lines; the transcript concatenates them with appropriate spacing. Per `TUI-DESIGN.md §2.3`, user messages render with `theme.bg('user-bg')` padded to full width; assistant messages render plain.
 - [ ] `components/input-box.ts` — single-line bordered box. Renders `┌─...─┐` top, `│ > <text>▌ │` middle, `└─...─┘` bottom. Owns cursor position. M3 supports basic typing (char insert, backspace, arrows for cursor nav). No Shift+Enter / multi-line yet.
-- [ ] `components/status-bar.ts` — two rows. Top: cwd (full width). Bottom: `<pct>%/<window>k (<mode>)` left, `<model> • thinking <on|off>` right. Static defaults for `mode` and `thinking` until M9 / M5+ wire them up. Per `TUI-DESIGN.md §5`.
-- [ ] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
+- [x] `components/status-bar.ts` — two rows. Top: cwd (full width). Bottom: `<pct>%/<window>k (<mode>)` left, `<model> • thinking <on|off>` right. Static defaults for `mode` and `thinking` until M9 / M5+ wire them up. Per `TUI-DESIGN.md §5`.
+- [x] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
 - [ ] `components/permission-prompt.ts` — the inline approval block (`TUI-DESIGN.md §4.7`). Renders inside the transcript when a `permission_ask` event fires; captures `y/a/n/N` keys; resolves a promise the event reducer is awaiting.
 
 ### M3.5a — Component smoke tests
@@ -248,8 +248,8 @@ Throwaway scripts under `packages/tui/scripts/` that instantiate a component, re
 
 Run with `node --experimental-strip-types packages/tui/scripts/<name>.ts` (or `npx tsx` as fallback).
 
-- [ ] `scripts/smoke-status-bar.ts` — exercise `StatusBar` at widths 80 / 60 / 40, with `thinking` on/off, with a deep cwd that needs left-truncation, and with `tokensUsed > contextWindow` to surface the over-100% case. Verify visually: pipes line up, suffix drops at narrow widths, model truncates last.
-- [ ] `scripts/smoke-activity-line.ts` — once `activity-line.ts` exists.
+- [x] `scripts/smoke-status-bar.ts` — exercise `StatusBar` at widths 80 / 60 / 40, with `thinking` on/off, with a deep cwd that needs left-truncation, and with `tokensUsed > contextWindow` to surface the over-100% case. Verify visually: pipes line up, suffix drops at narrow widths, model truncates last.
+- [x] `scripts/smoke-activity-line.ts` — once `activity-line.ts` exists.
 - [ ] `scripts/smoke-input-box.ts` — once `input-box.ts` exists.
 - [ ] `scripts/smoke-transcript.ts` — once `transcript.ts` exists.
 - [ ] `scripts/smoke-permission-prompt.ts` — once `permission-prompt.ts` exists.
