@@ -237,7 +237,12 @@ Just enough to handle the keys M3 actually uses. Defer mouse, kitty, bracketed p
 One file per component under `packages/tui/src/components/`. Each implements the `Component` interface from M3.3. ~100 LOC each.
 
 - [ ] `components/transcript.ts` — the scrolling chat area. Owns a list of "blocks" (user message, assistant message, tool call, permission prompt, error). Each block renders its own lines; the transcript concatenates them with appropriate spacing. Per `TUI-DESIGN.md §2.3`, user messages render with `theme.bg('user-bg')` padded to full width; assistant messages render plain.
-- [ ] `components/input-box.ts` — single-line bordered box. Renders `┌─...─┐` top, `│ > <text>▌ │` middle, `└─...─┘` bottom. Owns cursor position. M3 supports basic typing (char insert, backspace, arrows for cursor nav). No Shift+Enter / multi-line yet.
+- [x] `components/input-box.ts` — single-line bordered box. Renders `┌─...─┐` top, `│ > <text>▌ │` middle, `└─...─┘` bottom. Owns cursor position. M3 supports basic typing (char insert, backspace, arrows for cursor nav). No Shift+Enter / multi-line yet.
+  - **NEXT PICKUP — buffer overflow / wrapping behavior is unresolved.** Right now, when the buffer exceeds `width - FIXED_CHARS` (53 chars at width 60), the long buffer overflows past the right border instead of being clipped. The smoke test Case 7 demonstrates this — box visually breaks at long lengths. Decide on M3 behavior before moving to permission-prompt:
+    - Option A: **hard truncate** at the right border. Box stays intact; text past the visible width is invisible; cursor disappears off the right edge when editing earlier portions of a long line. M3-appropriate, ~5 lines of render() math (clip `visibleBuffer`, clamp `visibleCursorPos`, drop `Math.max` on padding).
+    - Option B: **horizontal scroll** — slide the visible window to keep the cursor in view. M4 polish. Don't do now.
+    - Option C: **multi-line wrap** — the box grows to N lines as the buffer wraps. Also M4 polish (deferred per the design doc).
+  - **Recommendation when resuming**: implement Option A and update the `render()` JSDoc to say "text past `width - FIXED_CHARS` is clipped; cursor clamps to the right edge when `cursorPos` is past the visible window — horizontal scroll deferred to M4." Rerun the smoke script and verify Case 7 now shows a width-60 box with the first 53 chars visible.
 - [x] `components/status-bar.ts` — two rows. Top: cwd (full width). Bottom: `<pct>%/<window>k (<mode>)` left, `<model> • thinking <on|off>` right. Static defaults for `mode` and `thinking` until M9 / M5+ wire them up. Per `TUI-DESIGN.md §5`.
 - [x] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
 - [ ] `components/permission-prompt.ts` — the inline approval block (`TUI-DESIGN.md §4.7`). Renders inside the transcript when a `permission_ask` event fires; captures `y/a/n/N` keys; resolves a promise the event reducer is awaiting.
@@ -250,7 +255,7 @@ Run with `node --experimental-strip-types packages/tui/scripts/<name>.ts` (or `n
 
 - [x] `scripts/smoke-status-bar.ts` — exercise `StatusBar` at widths 80 / 60 / 40, with `thinking` on/off, with a deep cwd that needs left-truncation, and with `tokensUsed > contextWindow` to surface the over-100% case. Verify visually: pipes line up, suffix drops at narrow widths, model truncates last.
 - [x] `scripts/smoke-activity-line.ts` — once `activity-line.ts` exists.
-- [ ] `scripts/smoke-input-box.ts` — once `input-box.ts` exists.
+- [x] `scripts/smoke-input-box.ts` — 7 cases: empty box, typing "hello", backspace at end, backspace at empty (no-op), cursor-in-middle insert, arrow boundaries (clamp at start/end), long buffer overflow. Lives at `packages/tui/src/scripts/input-box.ts` (note: in `src/` rather than the originally-planned `packages/tui/scripts/`; consider moving outside `src/` when resuming so it doesn't get compiled into `dist/`).
 - [ ] `scripts/smoke-transcript.ts` — once `transcript.ts` exists.
 - [ ] `scripts/smoke-permission-prompt.ts` — once `permission-prompt.ts` exists.
 

@@ -13,16 +13,16 @@
  * @see docs/TUI-DESIGN.md §5
  */
 
-import { basename } from "node:path";
-import type { Component } from "../renderer.js";
-import type { Theme } from "../theme/index.js";
+import { basename } from 'node:path';
+import type { Component } from '../renderer.js';
+import type { Theme } from '../theme/index.js';
 
 /**
  * Compaction strategy for the context window. `auto` lets the runtime
  * decide when to summarize older messages; `manual` leaves it to the user.
  * Wired statically until M9 introduces the real toggle.
  */
-export type CompactionMode = "auto" | "manual";
+export type CompactionMode = 'auto' | 'manual';
 
 const GAP = 2;
 
@@ -41,7 +41,7 @@ export class StatusBar implements Component {
     private readonly model: string,
     private readonly contextWindow: number,
     private readonly tokensUsed: number,
-    private readonly mode: CompactionMode = "auto",
+    private readonly mode: CompactionMode = 'auto',
     private readonly thinking: boolean = false,
   ) {}
 
@@ -59,7 +59,7 @@ export class StatusBar implements Component {
    */
   render(width: number, theme: Theme) {
     const left = `${pct(this.tokensUsed, this.contextWindow)}/${kFmt(this.contextWindow)} (${this.mode})`;
-    let right = `${this.model} • thinking ${this.thinking ? "on" : "off"}`;
+    let right = `${this.model} • thinking ${this.thinking ? 'on' : 'off'}`;
 
     if (left.length + right.length + GAP > width) {
       right = this.model;
@@ -68,10 +68,7 @@ export class StatusBar implements Component {
     const top = truncateLeft(this.cwd, width);
     const bottom = padBetween(left, right, width);
 
-    return [
-      theme.dim() + top + theme.reset(),
-      theme.dim() + bottom + theme.reset(),
-    ];
+    return [theme.dim() + top + theme.reset(), theme.dim() + bottom + theme.reset()];
   }
 }
 
@@ -124,5 +121,5 @@ function padBetween(left: string, right: string, width: number) {
     return (left + right).slice(0, width);
   }
 
-  return left + " ".repeat(Math.max(gap, 0)) + right;
+  return left + ' '.repeat(Math.max(gap, 0)) + right;
 }
