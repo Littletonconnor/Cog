@@ -429,22 +429,58 @@ Local overrides global.
 
 ### 4.9 Multi-line input
 
-**Trigger:** user presses `Shift+Enter` or keeps typing past the
-width.
+There are two ways the input box can become multi-line. The first is
+**M3 scope**; the second is **M4 polish**.
+
+**M3 — soft wrap at the right edge.** When the buffer's content fills
+the visible width, the next character spills onto a new row of the
+input region. The region grows up; the transcript shifts up to make
+room. Continued rows align to the `>` indent (two-space left margin).
+No user action is required — it happens automatically as you type.
+This matches how pi and Claude Code's input prompts behave; horizontal
+scrolling is explicitly **not** the model.
+
+**M4 — explicit newline via `Shift+Enter`.** Inserts a `\n` into the
+buffer. Renders the same way as soft-wrapped rows (continuation indent),
+but the line break is committed to the buffer so the resulting message
+keeps its formatting on submit.
+
+**Visual model: borderless prompt, not a drawn box.** The input region
+has **no `┌─...─┐` border** around it. Each row is just the prefix
+(prompt or indent) followed by buffer content; the row extends to the
+right edge of the terminal with no `│` border on either side. This
+matches Claude Code's prompt design — minimal chrome, edge-to-edge
+content.
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ > Help me refactor the agent loop. The current implementation    │
-│   has the streaming and dispatch logic intertwined and I want    │
-│   to split them so the dispatcher can be tested independently.   │
-│   _                                                              │
-└──────────────────────────────────────────────────────────────────┘
+> Help me refactor the agent loop. The current implementation
+  has the streaming and dispatch logic intertwined and I want
+  to split them so the dispatcher can be tested independently.
+  ▌
 ```
 
-- Box grows up; the transcript shifts up to make room.
-- Auto-wrap at the box width. Wrapped lines align to the `>` indent.
-- `Enter` submits. `Shift+Enter` newline.
-- `Ctrl+E` opens `$EDITOR` (M4 polish) for really long writes.
+- Region grows downward as the buffer wraps; the transcript shifts up
+  to make room.
+- Soft wrap (M3): break at character boundaries when the row fills.
+  Word-aware wrapping is M4 polish; M3 just breaks at the right edge.
+- Wrapped/continuation rows align to the `>` indent (two spaces of left
+  margin on every row after the first).
+- **Cursor styling:** the cursor renders as a one-column **reverse-video
+  overlay** on whatever character sits at `cursorPos` (terminal SGR
+  `\x1b[7m` / `\x1b[27m`). The underlying character remains visible —
+  reverse video just swaps fg and bg for that single cell, producing a
+  highlighted block with the character readable inside it. When the
+  cursor sits past the end of the buffer (empty buffer, or end of typed
+  text), the highlight renders on a virtual space at that column so
+  the cursor is always visible.
+- **Prompt and continuation indent** render in `theme.dim()` so they
+  read as subtle chrome rather than competing with the buffer text.
+- **Insertion semantics:** typing a character inserts it **before** the
+  character the cursor is on — the existing character (and everything
+  after) shifts one column right. Cursor stays one position to the
+  right of the character you just typed.
+- `Enter` submits the buffer. `Shift+Enter` inserts a newline (**M4**).
+- `Ctrl+E` opens `$EDITOR` for really long writes (**M4** polish).
 
 ---
 

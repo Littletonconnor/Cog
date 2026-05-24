@@ -237,12 +237,15 @@ Just enough to handle the keys M3 actually uses. Defer mouse, kitty, bracketed p
 One file per component under `packages/tui/src/components/`. Each implements the `Component` interface from M3.3. ~100 LOC each.
 
 - [ ] `components/transcript.ts` — the scrolling chat area. Owns a list of "blocks" (user message, assistant message, tool call, permission prompt, error). Each block renders its own lines; the transcript concatenates them with appropriate spacing. Per `TUI-DESIGN.md §2.3`, user messages render with `theme.bg('user-bg')` padded to full width; assistant messages render plain.
-- [x] `components/input-box.ts` — single-line bordered box. Renders `┌─...─┐` top, `│ > <text>▌ │` middle, `└─...─┘` bottom. Owns cursor position. M3 supports basic typing (char insert, backspace, arrows for cursor nav). No Shift+Enter / multi-line yet.
-  - **NEXT PICKUP — buffer overflow / wrapping behavior is unresolved.** Right now, when the buffer exceeds `width - FIXED_CHARS` (53 chars at width 60), the long buffer overflows past the right border instead of being clipped. The smoke test Case 7 demonstrates this — box visually breaks at long lengths. Decide on M3 behavior before moving to permission-prompt:
-    - Option A: **hard truncate** at the right border. Box stays intact; text past the visible width is invisible; cursor disappears off the right edge when editing earlier portions of a long line. M3-appropriate, ~5 lines of render() math (clip `visibleBuffer`, clamp `visibleCursorPos`, drop `Math.max` on padding).
-    - Option B: **horizontal scroll** — slide the visible window to keep the cursor in view. M4 polish. Don't do now.
-    - Option C: **multi-line wrap** — the box grows to N lines as the buffer wraps. Also M4 polish (deferred per the design doc).
-  - **Recommendation when resuming**: implement Option A and update the `render()` JSDoc to say "text past `width - FIXED_CHARS` is clipped; cursor clamps to the right edge when `cursorPos` is past the visible window — horizontal scroll deferred to M4." Rerun the smoke script and verify Case 7 now shows a width-60 box with the first 53 chars visible.
+- [x] `components/input-box.ts` — bordered input box. Renders `┌─...─┐` top, one or more content rows (`│ > <text>▌` first row, `│   <text>` continuation rows), `└─...─┘` bottom. Owns cursor position. M3 supports: char insert, backspace, left/right arrow nav, and **soft wrap at the right edge** — the box grows downward as the buffer fills past `width - FIXED_CHARS`. Explicit `Shift+Enter` newlines and word-aware wrapping are deferred to M4.
+  - **NEXT PICKUP — implement soft wrap.** Decision locked: M3 wraps (no horizontal scroll). `render()` returns a variable number of lines (`2 + N` where `N` is the number of wrapped content rows; minimum 1 content row even for an empty buffer). Plan:
+    1. Recompute `FIXED_CHARS`. Wrap layout has different chrome than the single-line layout — the cursor is no longer a reserved cell on every row; it splices into the buffer at its position. Inner content width per row = `width - 5` (left border + left pad + prompt-or-indent (2 chars) + right border). Confirm by counting against the `§4.9` mockup before coding.
+    2. Chunk the buffer into rows of `innerWidth` chars (simple char-boundary chunking — word-aware is M4). Compute `cursorRow = Math.floor(cursorPos / innerWidth)` and `cursorCol = cursorPos % innerWidth`.
+    3. Ensure there's a row at `cursorRow` even if buffer is empty or cursor sits exactly at a wrap boundary (push an empty row if `cursorRow >= chunks.length`).
+    4. Render row 0 with `>` prompt; subsequent rows with `  ` continuation indent. Splice cursor into the row matching `cursorRow` at `cursorCol`. Pad each row's content to `innerWidth`.
+    5. Update the `render()` JSDoc to describe the variable-height contract and the wrap rules.
+    6. Verify against the M3.5a smoke script — Case 7 should now produce a tall box with the buffer wrapped across multiple rows, cursor visible on the last row, right border intact at column `width`.
+  - **Out of scope for this pickup**: word-aware wrap, `Shift+Enter` explicit newlines, scrollback within the box (very long buffers that exceed terminal height). All M4.
 - [x] `components/status-bar.ts` — two rows. Top: cwd (full width). Bottom: `<pct>%/<window>k (<mode>)` left, `<model> • thinking <on|off>` right. Static defaults for `mode` and `thinking` until M9 / M5+ wire them up. Per `TUI-DESIGN.md §5`.
 - [x] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
 - [ ] `components/permission-prompt.ts` — the inline approval block (`TUI-DESIGN.md §4.7`). Renders inside the transcript when a `permission_ask` event fires; captures `y/a/n/N` keys; resolves a promise the event reducer is awaiting.
@@ -321,7 +324,8 @@ Replace the M2.5 stdout dumper. ~20 lines of work.
 ## M4 — TUI polish
 
 - Token / cost display in status bar
-- Multi-line input (Shift+Enter)
+- Explicit newlines in input box (`Shift+Enter` inserts `\n` into the buffer; M3 already handles soft wrap at the right edge)
+- Word-aware wrapping (M3 breaks at character boundaries; M4 prefers word boundaries when possible)
 - `$EDITOR` mode for long writes (`Ctrl+E` to open vim/code)
 - Paste handling (bracketed paste)
 - Themes

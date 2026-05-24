@@ -1,7 +1,16 @@
 /**
- * Three-line bordered input box at the bottom of the TUI (above the
- * status bar). Owns the user's typed buffer and the cursor position;
- * mutates them in response to `KeyEvent`s routed by the orchestrator.
+ * Borderless input region at the bottom of the TUI (above the status
+ * bar). Owns the user's typed buffer and the cursor position; mutates
+ * them in response to `KeyEvent`s routed by the orchestrator.
+ *
+ * **Variable height, edge-to-edge.** The region renders as `N` lines
+ * where `N` is the number of wrapped content rows (minimum 1, even for
+ * an empty buffer). The region grows downward as the buffer fills past
+ * the per-row content width — soft wrap at character boundaries matches
+ * Claude Code's prompt design: no `┌─...─┐` border, just the prefix
+ * (`> ` on the first row, `  ` on continuation rows) followed by buffer
+ * content extending to the right edge of the terminal. Horizontal
+ * scrolling is explicitly not the model.
  *
  * **Submit lifecycle is intentionally split.** This component handles
  * typing, deletion, and cursor movement, but it does **not** handle
@@ -11,46 +20,117 @@
  * cross-cutting concerns (submission, redraw scheduling) is the same
  * separation the status bar and activity line follow.
  *
- * Multi-line input, history, paste handling, and horizontal scrolling
- * are deferred to M4 polish. M3 supports a single-line buffer.
+ * Deferred to M4 polish: explicit newlines via `Shift+Enter`,
+ * word-aware wrapping (M3 breaks at character boundaries), history,
+ * bracketed paste, and `$EDITOR` mode.
  *
- * @see docs/TUI-DESIGN.md §4.2
+ * @see docs/TUI-DESIGN.md §4.9
  */
 
-import type { KeyEvent } from '../keys.js';
-import type { Component } from '../renderer.js';
-import type { Theme } from '../theme/index.js';
+import type { KeyEvent } from "../keys.js";
+import type { Component } from "../renderer.js";
+import type { Theme } from "../theme/index.js";
 
 const GLYPHS = {
-  topLeft: '┌',
-  topRight: '┐',
-  bottomLeft: '└',
-  bottomRight: '┘',
-  horizontal: '─',
-  vertical: '│',
-  cursor: '▌',
-  prompt: '>',
+  prompt: "❯",
 } as const;
 
 /**
- * Number of non-buffer cells on the content row. The remaining space
- * (`width - FIXED_CHARS`) holds the buffer text plus right-side padding.
- *
- * Layout, column by column:
- *
- *   col  1: left border  `│`
- *   col  2: left padding ` `
- *   col  3: prompt       `>`
- *   col  4: prompt pad   ` `
- *   col  5: cursor       `▌`  (always present — sits in the buffer at cursorPos)
- *   col -2: right pad    ` `
- *   col -1: right border `│`
- *
- * Total: 7 fixed cells (2 borders + 2 inner pads + prompt + prompt pad +
- * cursor). If the layout changes (e.g. dropping the prompt or adding a
- * second prompt char), recount and update.
+ * SGR escape pair that produces the cursor's reverse-video overlay.
+ * `\x1b[7m` enables reverse (swap fg/bg for subsequent chars); `\x1b[27m`
+ * turns it off without resetting other attributes. Wrapping a single
+ * character in these gives a highlighted block with the character still
+ * readable inside it — the cursor never hides the buffer.
  */
-const FIXED_CHARS = 7;
+const CURSOR_ON = "\x1b[7m";
+const CURSOR_OFF = "\x1b[27m";
+
+/**
+ * The result of wrapping a buffer for rendering. Carries the chunked
+ * rows plus the cursor's grid position.
+ *
+ * Invariant: `rows[cursorRow]` always exists. If `cursorPos` would
+ * land past the last chunked row (e.g. the cursor sits at an exact
+ * wrap boundary), the helper appends empty rows until the cursor's
+ * row exists.
+ */
+type WrappedBuffer = {
+  rows: string[];
+  cursorRow: number;
+  cursorCol: number;
+};
+
+/**
+ * Chunk a buffer into rows of at most `innerWidth` characters and locate
+ * the cursor within the resulting grid. Pure — no dependence on theme,
+ * terminal state, or instance state.
+ *
+ * Edge cases:
+ *
+ *   - **Empty buffer.** Returns `rows: [""]` so the input box always
+ *     has at least one content row to draw.
+ *   - **Cursor at a wrap boundary.** When `cursorPos` is an exact
+ *     multiple of `innerWidth` on a full row, the cursor moves to the
+ *     start of the next row (not the trailing edge of the current
+ *     row). An empty row is appended if needed.
+ *   - **Cursor far past the buffer.** Successive empty rows are
+ *     appended until `rows[cursorRow]` exists. In practice the cursor
+ *     invariant (`cursorPos <= buffer.length`) prevents this, but the
+ *     `while` loop costs nothing and makes the helper robust against
+ *     future invariant violations.
+ *
+ * Chunking is at character boundaries; word-aware wrapping is M4
+ * polish.
+ *
+ * @param buffer       The full input text.
+ * @param cursorPos    Insertion index into `buffer` (0..buffer.length).
+ * @param innerWidth   Max characters per row before wrapping. Should
+ *                     equal `width - INNER_WIDTH_DELTA` at the caller.
+ */
+function wrapBuffer(
+  buffer: string,
+  cursorPos: number,
+  innerWidth: number,
+): WrappedBuffer {
+  const rows: string[] = [];
+
+  for (let i = 0; i < buffer.length; i += innerWidth) {
+    rows.push(buffer.slice(i, i + innerWidth));
+  }
+  if (rows.length === 0) rows.push("");
+  const cursorRow = Math.floor(cursorPos / innerWidth);
+  const cursorCol = cursorPos % innerWidth;
+  while (cursorRow >= rows.length) rows.push("");
+
+  return {
+    rows,
+    cursorRow,
+    cursorCol,
+  };
+}
+
+/**
+ * Number of non-buffer cells on each content row. The remaining space
+ * (`width - INNER_WIDTH_DELTA`) holds the buffer text. On the cursor
+ * row, the character at `cursorCol` is wrapped in reverse-video SGR
+ * escapes so the underlying character stays visible behind a
+ * highlighted background.
+ *
+ * Layout, column by column (no borders — the input region is edge-to-edge):
+ *
+ *   col  1:           prompt or indent  `❯` on row 0, ` ` on continuation rows
+ *   col  2:           prompt pad        ` `
+ *   col  3..width:    buffer (cursor overlays one buffer column on cursorRow)
+ *
+ * Total: 2 fixed cells (prompt-or-indent + prompt pad). The cursor does
+ * **not** consume an extra column — it restyles the column already
+ * occupied by `buffer[cursorPos]` (or a virtual space when the cursor
+ * sits past the buffer's end).
+ *
+ * If the layout changes (e.g. adding a second prompt char or reserving
+ * a right-edge column), recount and update.
+ */
+const INNER_WIDTH_DELTA = 2;
 
 export class InputBox implements Component {
   /**
@@ -58,7 +138,7 @@ export class InputBox implements Component {
    * by `clear()`. Never larger than what one terminal row can display in
    * M3 (no horizontal scrolling yet — overflow wraps visually).
    */
-  private buffer: string = '';
+  private buffer: string = "";
 
   /**
    * Insertion index into `buffer`. Invariant: `0 <= cursorPos <= buffer.length`.
@@ -69,52 +149,58 @@ export class InputBox implements Component {
   private cursorPos: number = 0;
 
   /**
-   * Render the input box as three lines:
+   * Render the input region at the given width. Returns `N` lines —
+   * one per wrapped content row. No borders are drawn; the region is
+   * edge-to-edge.
    *
-   *   1. Top border:    `┌─...─┐` spanning the full terminal width.
-   *   2. Content row:   `│ > <buffer with cursor at cursorPos> │`,
-   *                     space-padded to the full width.
-   *   3. Bottom border: `└─...─┘`.
+   *   - Row 0:       `> <buffer-chunk-with-cursor>`
+   *   - Rows 1..N-1: `  <buffer-chunk-with-cursor>` (continuation indent)
    *
-   * The cursor is drawn as a `▌` glyph inserted between the characters
-   * at `buffer[cursorPos - 1]` and `buffer[cursorPos]`. The renderer's
-   * diff treats each returned line as opaque, so any styling (theme
-   * escapes) must already be embedded in the returned strings.
+   * `N` is at least 1 — an empty buffer still produces one content row
+   * with the cursor at column 0. `N` grows as the buffer fills past
+   * `width - INNER_WIDTH_DELTA` characters per row.
    *
-   * Buffer overflow (longer than `width - 7`) is not yet handled —
-   * deferred to M4 horizontal scrolling.
+   * On the row matching `cursorRow`, the character at `cursorCol` is
+   * wrapped in reverse-video SGR escapes (`\x1b[7m` / `\x1b[27m`) so
+   * the cursor renders as a one-column highlight with the underlying
+   * character still visible inside it. When the cursor sits past the
+   * end of a row's buffer text (empty row or end of a short last row),
+   * the highlight renders on a virtual space at that column.
+   *
+   * Wrapping is at character boundaries. Word-aware wrapping is M4.
+   *
+   * The renderer's diff treats each returned line as opaque, so all
+   * styling (theme escapes) is embedded directly in the returned strings.
    */
   render(width: number, theme: Theme): string[] {
-    const topLine = GLYPHS.topLeft + GLYPHS.horizontal.repeat(width - 2) + GLYPHS.topRight;
+    const innerWidth = width - INNER_WIDTH_DELTA;
+    const { rows, cursorRow, cursorCol } = wrapBuffer(
+      this.buffer,
+      this.cursorPos,
+      innerWidth,
+    );
+    const styledPrompt = theme.dim() + GLYPHS.prompt + theme.reset();
 
-    const padding = Math.max(0, width - FIXED_CHARS - this.buffer.length);
-    const content =
-      this.buffer.slice(0, this.cursorPos) +
-      theme.fg('accent') +
-      GLYPHS.cursor +
-      theme.reset() +
-      this.buffer.slice(this.cursorPos);
-    const dimVertical = theme.dim() + GLYPHS.vertical + theme.reset();
+    const contentLines: string[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const rowText = rows[i] ?? "";
+      const prefix = i === 0 ? styledPrompt + " " : "  ";
 
-    const middleLine =
-      dimVertical +
-      ' ' +
-      theme.fg('accent') +
-      GLYPHS.prompt +
-      theme.reset() +
-      ' ' +
-      content +
-      ' '.repeat(padding) +
-      ' ' +
-      dimVertical;
+      let visibleContent: string;
+      if (i === cursorRow) {
+        const padded = rowText.padEnd(cursorCol + 1, " ");
+        const before = padded.slice(0, cursorCol);
+        const under = padded.charAt(cursorCol);
+        const after = padded.slice(cursorCol + 1);
+        visibleContent = before + CURSOR_ON + under + CURSOR_OFF + after;
+      } else {
+        visibleContent = rowText;
+      }
 
-    const bottomLine = GLYPHS.bottomLeft + GLYPHS.horizontal.repeat(width - 2) + GLYPHS.bottomRight;
+      contentLines.push(prefix + visibleContent);
+    }
 
-    return [
-      theme.dim() + topLine + theme.reset(),
-      middleLine,
-      theme.dim() + bottomLine + theme.reset(),
-    ];
+    return contentLines;
   }
 
   /**
@@ -132,21 +218,25 @@ export class InputBox implements Component {
    */
   handleKey(event: KeyEvent): void {
     switch (event.type) {
-      case 'char':
+      case "char":
         this.buffer =
-          this.buffer.slice(0, this.cursorPos) + event.value + this.buffer.slice(this.cursorPos);
+          this.buffer.slice(0, this.cursorPos) +
+          event.value +
+          this.buffer.slice(this.cursorPos);
         this.cursorPos += event.value.length;
         return;
-      case 'backspace':
+      case "backspace":
         if (this.cursorPos > 0) {
           this.buffer =
-            this.buffer.slice(0, this.cursorPos - 1) + this.buffer.slice(this.cursorPos);
+            this.buffer.slice(0, this.cursorPos - 1) +
+            this.buffer.slice(this.cursorPos);
           this.cursorPos--;
         }
         return;
-      case 'arrow':
-        if (event.dir === 'left' && this.cursorPos > 0) this.cursorPos--;
-        if (event.dir === 'right' && this.cursorPos < this.buffer.length) this.cursorPos++;
+      case "arrow":
+        if (event.dir === "left" && this.cursorPos > 0) this.cursorPos--;
+        if (event.dir === "right" && this.cursorPos < this.buffer.length)
+          this.cursorPos++;
         return;
       default:
         // no-op
@@ -169,7 +259,7 @@ export class InputBox implements Component {
    * submit cycle.
    */
   clear(): void {
-    this.buffer = '';
+    this.buffer = "";
     this.cursorPos = 0;
   }
 }
