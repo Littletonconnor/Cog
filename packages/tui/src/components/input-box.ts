@@ -62,8 +62,6 @@ type WrappedBuffer = {
 
 /**
  * Chunk a buffer into rows of at most `innerWidth` characters and locate
- * the cursor within the resulting grid. Pure — no dependence on theme,
- * terminal state, or instance state.
  *
  * Edge cases:
  *
@@ -74,20 +72,14 @@ type WrappedBuffer = {
  *     start of the next row (not the trailing edge of the current
  *     row). An empty row is appended if needed.
  *   - **Cursor far past the buffer.** Successive empty rows are
- *     appended until `rows[cursorRow]` exists. In practice the cursor
- *     invariant (`cursorPos <= buffer.length`) prevents this, but the
- *     `while` loop costs nothing and makes the helper robust against
- *     future invariant violations.
- *
- * Chunking is at character boundaries; word-aware wrapping is M4
- * polish.
+ *     appended until `rows[cursorRow]` exists.
  *
  * @param buffer       The full input text.
  * @param cursorPos    Insertion index into `buffer` (0..buffer.length).
  * @param innerWidth   Max characters per row before wrapping. Should
  *                     equal `width - INNER_WIDTH_DELTA` at the caller.
  */
-function wrapBuffer(
+function maybeWrapBuffer(
   buffer: string,
   cursorPos: number,
   innerWidth: number,
@@ -126,25 +118,18 @@ function wrapBuffer(
  * **not** consume an extra column — it restyles the column already
  * occupied by `buffer[cursorPos]` (or a virtual space when the cursor
  * sits past the buffer's end).
- *
- * If the layout changes (e.g. adding a second prompt char or reserving
- * a right-edge column), recount and update.
  */
 const INNER_WIDTH_DELTA = 2;
 
 export class InputBox implements Component {
   /**
    * The text the user has typed so far. Mutated by `handleKey()`; reset
-   * by `clear()`. Never larger than what one terminal row can display in
-   * M3 (no horizontal scrolling yet — overflow wraps visually).
+   * by `clear()`.
    */
   private buffer: string = "";
 
   /**
    * Insertion index into `buffer`. Invariant: `0 <= cursorPos <= buffer.length`.
-   * `cursorPos === 0` means "before the first character"; `cursorPos === buffer.length`
-   * means "after the last character." Edits insert *at* this index and
-   * advance the cursor by one.
    */
   private cursorPos: number = 0;
 
@@ -174,7 +159,7 @@ export class InputBox implements Component {
    */
   render(width: number, theme: Theme): string[] {
     const innerWidth = width - INNER_WIDTH_DELTA;
-    const { rows, cursorRow, cursorCol } = wrapBuffer(
+    const { rows, cursorRow, cursorCol } = maybeWrapBuffer(
       this.buffer,
       this.cursorPos,
       innerWidth,
