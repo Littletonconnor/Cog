@@ -12,6 +12,7 @@
     "test": "pnpm -r test",
     "lint": "biome check .",
     "format": "biome check . --write",
+    "format:write": "biome check . --write --unsafe",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {

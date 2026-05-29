@@ -27,12 +27,12 @@
  * @see docs/TUI-DESIGN.md §4.9
  */
 
-import type { KeyEvent } from "../keys.js";
-import type { Component } from "../renderer.js";
-import type { Theme } from "../theme/index.js";
+import type { KeyEvent } from '../keys.js';
+import type { Component } from '../renderer.js';
+import type { Theme } from '../theme/index.js';
 
 const GLYPHS = {
-  prompt: "❯",
+  prompt: '❯',
 } as const;
 
 /**
@@ -42,8 +42,8 @@ const GLYPHS = {
  * character in these gives a highlighted block with the character still
  * readable inside it — the cursor never hides the buffer.
  */
-const CURSOR_ON = "\x1b[7m";
-const CURSOR_OFF = "\x1b[27m";
+const CURSOR_ON = '\x1b[7m';
+const CURSOR_OFF = '\x1b[27m';
 
 /**
  * The result of wrapping a buffer for rendering. Carries the chunked
@@ -59,47 +59,6 @@ type WrappedBuffer = {
   cursorRow: number;
   cursorCol: number;
 };
-
-/**
- * Chunk a buffer into rows of at most `innerWidth` characters and locate
- *
- * Edge cases:
- *
- *   - **Empty buffer.** Returns `rows: [""]` so the input box always
- *     has at least one content row to draw.
- *   - **Cursor at a wrap boundary.** When `cursorPos` is an exact
- *     multiple of `innerWidth` on a full row, the cursor moves to the
- *     start of the next row (not the trailing edge of the current
- *     row). An empty row is appended if needed.
- *   - **Cursor far past the buffer.** Successive empty rows are
- *     appended until `rows[cursorRow]` exists.
- *
- * @param buffer       The full input text.
- * @param cursorPos    Insertion index into `buffer` (0..buffer.length).
- * @param innerWidth   Max characters per row before wrapping. Should
- *                     equal `width - INNER_WIDTH_DELTA` at the caller.
- */
-function maybeWrapBuffer(
-  buffer: string,
-  cursorPos: number,
-  innerWidth: number,
-): WrappedBuffer {
-  const rows: string[] = [];
-
-  for (let i = 0; i < buffer.length; i += innerWidth) {
-    rows.push(buffer.slice(i, i + innerWidth));
-  }
-  if (rows.length === 0) rows.push("");
-  const cursorRow = Math.floor(cursorPos / innerWidth);
-  const cursorCol = cursorPos % innerWidth;
-  while (cursorRow >= rows.length) rows.push("");
-
-  return {
-    rows,
-    cursorRow,
-    cursorCol,
-  };
-}
 
 /**
  * Number of non-buffer cells on each content row. The remaining space
@@ -126,7 +85,7 @@ export class InputBox implements Component {
    * The text the user has typed so far. Mutated by `handleKey()`; reset
    * by `clear()`.
    */
-  private buffer: string = "";
+  private buffer: string = '';
 
   /**
    * Insertion index into `buffer`. Invariant: `0 <= cursorPos <= buffer.length`.
@@ -159,21 +118,17 @@ export class InputBox implements Component {
    */
   render(width: number, theme: Theme): string[] {
     const innerWidth = width - INNER_WIDTH_DELTA;
-    const { rows, cursorRow, cursorCol } = maybeWrapBuffer(
-      this.buffer,
-      this.cursorPos,
-      innerWidth,
-    );
+    const { rows, cursorRow, cursorCol } = maybeWrapBuffer(this.buffer, this.cursorPos, innerWidth);
     const styledPrompt = theme.dim() + GLYPHS.prompt + theme.reset();
 
     const contentLines: string[] = [];
     for (let i = 0; i < rows.length; i++) {
-      const rowText = rows[i] ?? "";
-      const prefix = i === 0 ? styledPrompt + " " : "  ";
+      const rowText = rows[i] ?? '';
+      const prefix = i === 0 ? `${styledPrompt} ` : '  ';
 
       let visibleContent: string;
       if (i === cursorRow) {
-        const padded = rowText.padEnd(cursorCol + 1, " ");
+        const padded = rowText.padEnd(cursorCol + 1, ' ');
         const before = padded.slice(0, cursorCol);
         const under = padded.charAt(cursorCol);
         const after = padded.slice(cursorCol + 1);
@@ -203,25 +158,21 @@ export class InputBox implements Component {
    */
   handleKey(event: KeyEvent): void {
     switch (event.type) {
-      case "char":
+      case 'char':
         this.buffer =
-          this.buffer.slice(0, this.cursorPos) +
-          event.value +
-          this.buffer.slice(this.cursorPos);
+          this.buffer.slice(0, this.cursorPos) + event.value + this.buffer.slice(this.cursorPos);
         this.cursorPos += event.value.length;
         return;
-      case "backspace":
+      case 'backspace':
         if (this.cursorPos > 0) {
           this.buffer =
-            this.buffer.slice(0, this.cursorPos - 1) +
-            this.buffer.slice(this.cursorPos);
+            this.buffer.slice(0, this.cursorPos - 1) + this.buffer.slice(this.cursorPos);
           this.cursorPos--;
         }
         return;
-      case "arrow":
-        if (event.dir === "left" && this.cursorPos > 0) this.cursorPos--;
-        if (event.dir === "right" && this.cursorPos < this.buffer.length)
-          this.cursorPos++;
+      case 'arrow':
+        if (event.dir === 'left' && this.cursorPos > 0) this.cursorPos--;
+        if (event.dir === 'right' && this.cursorPos < this.buffer.length) this.cursorPos++;
         return;
       default:
         // no-op
@@ -244,7 +195,44 @@ export class InputBox implements Component {
    * submit cycle.
    */
   clear(): void {
-    this.buffer = "";
+    this.buffer = '';
     this.cursorPos = 0;
   }
+}
+
+/**
+ * Chunk a buffer into rows of at most `innerWidth` characters and locate
+ *
+ * Edge cases:
+ *
+ *   - **Empty buffer.** Returns `rows: [""]` so the input box always
+ *     has at least one content row to draw.
+ *   - **Cursor at a wrap boundary.** When `cursorPos` is an exact
+ *     multiple of `innerWidth` on a full row, the cursor moves to the
+ *     start of the next row (not the trailing edge of the current
+ *     row). An empty row is appended if needed.
+ *   - **Cursor far past the buffer.** Successive empty rows are
+ *     appended until `rows[cursorRow]` exists.
+ *
+ * @param buffer       The full input text.
+ * @param cursorPos    Insertion index into `buffer` (0..buffer.length).
+ * @param innerWidth   Max characters per row before wrapping. Should
+ *                     equal `width - INNER_WIDTH_DELTA` at the caller.
+ */
+function maybeWrapBuffer(buffer: string, cursorPos: number, innerWidth: number): WrappedBuffer {
+  const rows: string[] = [];
+
+  for (let i = 0; i < buffer.length; i += innerWidth) {
+    rows.push(buffer.slice(i, i + innerWidth));
+  }
+  if (rows.length === 0) rows.push('');
+  const cursorRow = Math.floor(cursorPos / innerWidth);
+  const cursorCol = cursorPos % innerWidth;
+  while (cursorRow >= rows.length) rows.push('');
+
+  return {
+    rows,
+    cursorRow,
+    cursorCol,
+  };
 }

@@ -1,12 +1,7 @@
-import fs from "node:fs/promises";
-import { setTimeout as sleep } from "node:timers/promises";
+import fs from 'node:fs/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
 
-import type {
-  Provider,
-  ProviderInput,
-  ScenarioFile,
-  StreamEvent,
-} from "./types.js";
+import type { Provider, ProviderInput, ScenarioFile, StreamEvent } from './types.js';
 
 export class MockProvider implements Provider {
   constructor(private readonly filePath: string) {}
@@ -17,7 +12,7 @@ export class MockProvider implements Provider {
 
     for (const event of scenario.events) {
       if (input.signal?.aborted) {
-        yield { type: "stop", reason: "aborted" };
+        yield { type: 'stop', reason: 'aborted' };
         return;
       }
 
@@ -28,36 +23,29 @@ export class MockProvider implements Provider {
 }
 
 async function loadScenarioFile(filePath: string) {
-  const raw = await fs.readFile(filePath, "utf8");
+  const raw = await fs.readFile(filePath, 'utf8');
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to load scenario from "${filePath}": invalid JSON (${reason}).`,
-    );
+    throw new Error(`Failed to load scenario from "${filePath}": invalid JSON (${reason}).`);
   }
 
   return parsed;
 }
 
-function validateScenarioFile(
-  parsed: unknown,
-  filePath: string,
-): asserts parsed is ScenarioFile {
-  if (typeof parsed !== "object" || parsed === null) {
+function validateScenarioFile(parsed: unknown, filePath: string): asserts parsed is ScenarioFile {
+  if (typeof parsed !== 'object' || parsed === null) {
     throw new Error(
       `Failed to load scenario from "${filePath}": expected a JSON object, got ${
-        parsed === null ? "null" : typeof parsed
+        parsed === null ? 'null' : typeof parsed
       }.`,
     );
   }
 
-  if (!("events" in parsed)) {
-    throw new Error(
-      `Failed to load scenario from "${filePath}": missing "events" field.`,
-    );
+  if (!('events' in parsed)) {
+    throw new Error(`Failed to load scenario from "${filePath}": missing "events" field.`);
   }
 
   if (!Array.isArray(parsed.events)) {
@@ -74,15 +62,10 @@ function validateScenarioFile(
 
   const last = parsed.events[parsed.events.length - 1];
   const lastDesc =
-    typeof last === "object" && last !== null && "type" in last
+    typeof last === 'object' && last !== null && 'type' in last
       ? `type "${String(last.type)}"`
-      : `${last === null ? "null" : typeof last}`;
-  if (
-    typeof last !== "object" ||
-    last === null ||
-    !("type" in last) ||
-    last.type !== "stop"
-  ) {
+      : `${last === null ? 'null' : typeof last}`;
+  if (typeof last !== 'object' || last === null || !('type' in last) || last.type !== 'stop') {
     throw new Error(
       `Failed to load scenario from "${filePath}": last event must have type "stop", got ${lastDesc}.`,
     );

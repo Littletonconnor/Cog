@@ -17,8 +17,8 @@
  * @see docs/TUI-DESIGN.md §2.3, §4.5, §4.11
  */
 
-import type { Component } from "../renderer.js";
-import type { Theme } from "../theme/index.js";
+import type { Component } from '../renderer.js';
+import type { Theme } from '../theme/index.js';
 
 /**
  * A tool invocation in the transcript. Created by `tool_use_start` with
@@ -33,11 +33,11 @@ import type { Theme } from "../theme/index.js";
  * `theme.fg('success')`, `error` in `theme.fg('danger')`.
  */
 type ToolBlock = {
-  type: "tool";
+  type: 'tool';
   id: string;
   name: string;
   input: unknown;
-  status: "running" | "success" | "error";
+  status: 'running' | 'success' | 'error';
   result?: string;
 };
 
@@ -51,7 +51,7 @@ type ToolBlock = {
  * turns visually anchor the conversation.
  */
 type UserBlock = {
-  type: "user";
+  type: 'user';
   id: string;
   text: string;
 };
@@ -69,7 +69,7 @@ type UserBlock = {
  * at the available terminal width.
  */
 type AssistantBlock = {
-  type: "assistant";
+  type: 'assistant';
   id: string;
   text: string;
 };
@@ -83,7 +83,7 @@ type AssistantBlock = {
  * Renders in `theme.fg('danger')` per `TUI-DESIGN.md §4.11`.
  */
 type ErrorBlock = {
-  type: "error";
+  type: 'error';
   id: string;
   message: string;
   recoverable: boolean;
@@ -132,11 +132,18 @@ export class Transcript implements Component {
   private currentAssistantId: string | null = null;
 
   /**
-   * Concatenate every block's rendered lines into a single string
-   * array for the parent renderer. Implementation deferred to chunk 3.
+   * Render every block to lines and concatenate them, separated by a
+   * single blank line between blocks (no leading or trailing blank).
+   * Each block is rendered by the pure `renderBlock` dispatch. Returns
+   * an empty array when the transcript has no blocks.
    */
   render(width: number, theme: Theme) {
-    return [""];
+    const lines: string[] = [];
+    for (const block of this.blocks) {
+      if (lines.length > 0) lines.push('');
+      lines.push(...renderBlock(block, width, theme));
+    }
+    return lines;
   }
 
   /**
@@ -145,7 +152,10 @@ export class Transcript implements Component {
    * submits the input buffer. Generates a fresh id; ends the current
    * assistant turn (resets `currentAssistantId`).
    */
-  appendUser(text: string) {}
+  appendUser(text: string) {
+    this.blocks.push({ type: 'user', id: crypto.randomUUID(), text });
+    this.currentAssistantId = null;
+  }
 
   /**
    * Extend the current streaming assistant block, or create a new
@@ -156,7 +166,18 @@ export class Transcript implements Component {
    * `text` is the *delta* (the chunk that just arrived), not the
    * cumulative buffer — the method appends.
    */
-  appendAssistantDelta(text: string) {}
+  appendAssistantDelta(text: string) {
+    if (this.currentAssistantId === null) {
+      const id = crypto.randomUUID();
+      this.blocks.push({ type: 'assistant', id, text });
+      this.currentAssistantId = id;
+    } else {
+      const block = this.blocks.find((b) => b.id === this.currentAssistantId);
+      if (block?.type === 'assistant') {
+        block.text += text;
+      }
+    }
+  }
 
   /**
    * Append a new tool block at the bottom of the transcript with
@@ -167,7 +188,16 @@ export class Transcript implements Component {
    *
    * Ends any current assistant turn (resets `currentAssistantId`).
    */
-  startTool(id: string, name: string, input: unknown) {}
+  startTool(id: string, name: string, input: unknown) {
+    this.blocks.push({
+      type: 'tool',
+      name,
+      id,
+      input,
+      status: 'running',
+    });
+    this.currentAssistantId = null;
+  }
 
   /**
    * Update the partial output on the existing tool block matching
@@ -178,7 +208,12 @@ export class Transcript implements Component {
    *
    * No-op if no tool block matches `id`.
    */
-  updateTool(id: string, partialOutput: string) {}
+  updateTool(id: string, partialOutput: string) {
+    const block = this.blocks.find((b) => b.id === id);
+    if (block?.type === 'tool') {
+      block.result = partialOutput;
+    }
+  }
 
   /**
    * Transition the existing tool block matching `id` from `running`
@@ -188,7 +223,13 @@ export class Transcript implements Component {
    *
    * No-op if no tool block matches `id`.
    */
-  finalizeTool(id: string, result: string, isError: boolean) {}
+  finalizeTool(id: string, result: string, isError: boolean) {
+    const block = this.blocks.find((b) => b.id === id);
+    if (block?.type === 'tool') {
+      block.result = result;
+      block.status = isError ? 'error' : 'success';
+    }
+  }
 
   /**
    * Append a new error block at the bottom of the transcript. Called
@@ -198,7 +239,15 @@ export class Transcript implements Component {
    *
    * Ends any current assistant turn (resets `currentAssistantId`).
    */
-  appendError(message: string, recoverable: boolean) {}
+  appendError(message: string, recoverable: boolean) {
+    this.blocks.push({
+      type: 'error',
+      id: crypto.randomUUID(),
+      message,
+      recoverable,
+    });
+    this.currentAssistantId = null;
+  }
 
   /**
    * Reset the transcript to its initial empty state. Clears the
@@ -206,5 +255,52 @@ export class Transcript implements Component {
    * this — the orchestrator calls it (e.g., on a new session, or as
    * cleanup during testing).
    */
-  clear() {}
+  clear() {
+    this.blocks = [];
+    this.currentAssistantId = null;
+  }
+}
+
+function renderBlock(block: Block, width: number, theme: Theme): string[] {
+  switch (block.type) {
+    case 'user': {
+      return wrapText(block.text, width).map(
+        (line) => theme.bg('user-bg') + line.padEnd(width) + theme.reset(),
+      );
+    }
+    case 'assistant': {
+      return wrapText(block.text, width);
+    }
+    case 'tool': {
+      const indicator =
+        block.status === 'success'
+          ? `${theme.fg('success')}✓`
+          : block.status === 'error'
+            ? `${theme.fg('danger')}✗`
+            : `${theme.dim()}...`;
+      return [`${indicator} ${block.name}${theme.reset()}`];
+    }
+    case 'error': {
+      const shortcuts = block.recoverable ? 'r retry · q abort' : 'q abort';
+      return [
+        ...wrapText(`✗ ${block.message}`, width).map(
+          (line) => theme.fg('danger') + line + theme.reset(),
+        ),
+        theme.dim() + shortcuts + theme.reset(),
+      ];
+    }
+    default: {
+      const _exhaustive: never = block;
+      return _exhaustive;
+    }
+  }
+}
+
+function wrapText(text: string, width: number) {
+  if (text === '') return [''];
+  const lines: string[] = [];
+  for (let i = 0; i < text.length; i += width) {
+    lines.push(text.slice(i, i + width));
+  }
+  return lines;
 }

@@ -236,7 +236,8 @@ Just enough to handle the keys M3 actually uses. Defer mouse, kitty, bracketed p
 
 One file per component under `packages/tui/src/components/`. Each implements the `Component` interface from M3.3. ~100 LOC each.
 
-- [ ] `components/transcript.ts` — the scrolling chat area. Owns a list of "blocks" (user message, assistant message, tool call, permission prompt, error). Each block renders its own lines; the transcript concatenates them with appropriate spacing. Per `TUI-DESIGN.md §2.3`, user messages render with `theme.bg('user-bg')` padded to full width; assistant messages render plain.
+- [x] `components/transcript.ts` — the scrolling chat area. Owns a list of "blocks" (user message, assistant message, tool call, error). Each block renders its own lines via a pure module-level `renderBlock` dispatch; the transcript concatenates them with a blank line between blocks. Per `TUI-DESIGN.md §2.3`, user messages render with `theme.bg('user-bg')` padded to full width; assistant/error messages render plain. **Tool block renders a minimal status line only in M3** (`✓/✗/⋯` + name); rich output rendering deferred — see Follow-ups. (Permission prompt is a separate component, not a transcript block.)
+  - Mutators (`appendUser`, `appendAssistantDelta`, `startTool`, `updateTool`, `finalizeTool`, `appendError`, `clear`) drive all state; `appendAssistantDelta` create-or-extends via a `currentAssistantId` pointer. Smoke test at `packages/tui/src/scripts/transcript.ts` (9 cases) confirms wrapping, status glyphs, error branches, delta-coalescing, and block spacing.
 - [x] `components/input-box.ts` — **borderless** input region. Renders `N` content rows (no top/bottom borders, no side `│` borders): `❯ <text>` on row 0, `  <text>` on continuation rows. Owns the buffer + cursor position. Handles char insert, backspace, left/right arrow nav, and **soft wrap at the right edge** — the region grows downward as the buffer fills past `width - INNER_WIDTH_DELTA`. Cursor renders as a one-column reverse-video overlay (`\x1b[7m` / `\x1b[27m`) on the underlying character, so the buffer text stays visible inside the highlight. Prompt is `theme.dim()`.
   - Wrap math lives in a pure module-level `wrapBuffer(buffer, cursorPos, innerWidth)` helper above the class. Returns `{ rows, cursorRow, cursorCol }` with the invariant that `rows[cursorRow]` always exists (empty rows appended for empty-buffer / wrap-boundary edge cases).
   - **Deferred to M4**: word-aware wrapping (M3 breaks at char boundaries), explicit `Shift+Enter` newlines, history, bracketed paste, `$EDITOR` mode, scrollback for buffers that exceed terminal height.
@@ -406,6 +407,34 @@ Replace the M2.5 stdout dumper. ~20 lines of work.
 - **Each new feature gets a README update in its package.**
 - **Each milestone gets a single squashed commit** with a clear message.
 - **Read `docs/RESEARCH.md` if you're ever unsure about the why.** It's the canonical reference.
+
+---
+
+## Follow-ups (deferred detail from shipped/in-progress milestones)
+
+Concrete work consciously scoped *out* of a milestone so it could be checked
+off, but that we intend to come back to. Distinct from "Open ideas" below —
+these are known gaps in code that already exists, not speculative features.
+
+- **Tool block rich rendering** (`packages/tui/src/components/transcript.ts`,
+  `tool` case). M3 ships a minimal status line only (`✓ / ✗ / ⋯` glyph +
+  tool name, colored by status). Deferred per `TUI-DESIGN.md §4.5`: rendering
+  the `result` body, collapse-to-first-3-lines, `… (N more)` truncation
+  indicator, live partial-output display during `running`, and
+  expand-on-demand. The block model already stores `result`/`input`, so this
+  is display-only — no type or mutator changes needed.
+- **Error message continuation indent** (`transcript.ts`, `error` case).
+  Wrapped error messages put the `✗ ` marker only on the first line;
+  continuation lines start at column 0 instead of indenting 2 spaces to align
+  under the message text. Same continuation-indent pattern as the input box.
+- **Move `smoke-input-box.ts` out of `src/`.** Currently at
+  `packages/tui/src/scripts/input-box.ts`, so `tsc` compiles it into `dist/`.
+  Move to `packages/tui/scripts/` (sibling of `src/`) to match the other
+  smoke scripts and keep `dist/` clean.
+- **Theme `dim` redundancy** (`packages/tui/src/theme/`). `dim` exists as both
+  an `FgRole` (so `theme.fg("dim")` works) *and* a standalone `theme.dim()`
+  method — two spellings for the same `\x1b[2m` escape. Pick one; convention so
+  far is `theme.dim()`.
 
 ---
 
