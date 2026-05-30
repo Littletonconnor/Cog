@@ -11,8 +11,9 @@
  * @see docs/TUI-DESIGN.md §7 (redraw policy) and docs/RESEARCH.md §2.
  */
 
-import type { TerminalHandle } from './terminal.js';
-import type { Theme } from './theme/index.js';
+import type { KeyEvent } from "./keys.js";
+import type { TerminalHandle } from "./terminal.js";
+import type { Theme } from "./theme/index.js";
 
 /**
  * A pure renderable unit. Given the available width and the active theme,
@@ -24,6 +25,30 @@ import type { Theme } from './theme/index.js';
  */
 export interface Component {
   render(width: number, theme: Theme): string[];
+}
+
+/**
+ * Capability interface for components that consume keyboard input. Kept
+ * separate from `Component` because the two concerns are orthogonal — not
+ * every renderable component handles keys (the status bar, activity line,
+ * and transcript don't), and a future scrollback or modal layer could
+ * conceivably handle keys without rendering anything of its own. Classes
+ * that do both responsibilities declare `implements Component, KeyHandler`.
+ *
+ * The orchestrator (M3.6) routes each `KeyEvent` to whichever component
+ * currently owns input focus — typically the input box, or the permission
+ * prompt while it's active. Implementations mutate their internal state
+ * synchronously and return `void`; triggering a redraw afterwards is the
+ * orchestrator's responsibility, not the handler's, so handlers stay
+ * decoupled from the renderer.
+ *
+ * Implementations must accept every `KeyEvent` variant without throwing —
+ * unrecognized events are silent no-ops. See `InputBox.handleKey` for the
+ * established pattern (a discriminated-union `switch` with a `default`
+ * that returns).
+ */
+export interface KeyHandler {
+  handleKey(event: KeyEvent): void;
 }
 
 /** Target frame interval. ~60fps cap; multiple `scheduleRedraw()` calls
@@ -103,7 +128,7 @@ export class Renderer {
     for (let i = firstChanged; i <= lastChanged; i++) {
       this.terminal.cursorTo(i + 1, 1); // ANSI is 1-indexed
       this.terminal.clearLine();
-      this.terminal.write(newLines[i] ?? '');
+      this.terminal.write(newLines[i] ?? "");
     }
     this.terminal.syncOutputEnd();
 

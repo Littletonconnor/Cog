@@ -347,30 +347,164 @@ a "more" hint).
 
 ### 4.7 Permission prompt
 
-**Trigger:** model wants to run a tool that requires approval.
+**Trigger:** the agent wants to run a tool that requires approval. A
+`permission_ask` StreamEvent arrives with a prompt string and the
+patterns the user is being asked to authorize.
 
 ```
-  I need to run the tests to verify.
-
   ↳ bash("pnpm test")
-    │
-    │  Allow this command?
-    │
-    │    [y]  yes, this once
-    │    [a]  yes, always allow `pnpm test *`
-    │    [n]  no
-    │    [N]  no, and stop the current task
-    │
-    │  > _
+
+  Allow this command?
+
+❯ 1. Yes
+     Run this command once.
+  2. Yes, don't ask again
+     Add `pnpm test *` to the session allowlist.
+  3. No
+     Skip this command. The agent will not run the tool.
+  ──────────────────────────────────────────────
+  4. Type something
+     Reply in your own words.
+
+  Enter to select · Tab/Arrow keys to navigate · Esc to cancel
 ```
 
-- **Inline in the transcript.** Feels like part of the conversation,
-  not a popup.
-- Input box at the bottom of the screen is **disabled and dimmed** while
-  a permission is pending.
-- Single-key shortcuts. `y` / `a` / `n` / `N`. No Enter required.
-- `a` adds the pattern to session-scoped allow rules; subsequent
-  matches don't prompt this session.
+#### Visual model: an arrow-nav popover, rendered inline
+
+Borrows directly from Claude Code, pi, and OpenCode — a vertically
+arranged list of options with one highlighted, navigated by arrow
+keys, confirmed by `Enter`. Single-key shortcuts (y/a/n/N) are
+**explicitly out** — they're discoverable only if you already know
+them, and one fat-finger can authorize a destructive action.
+
+**Inline in the transcript area, not a true overlay.** The
+permission-prompt component renders in the slot normally occupied by
+the input box. While the prompt is active, the orchestrator
+**removes the input box entirely** — it doesn't render its lines and
+doesn't route keys to it. The permission-prompt is the *only*
+key-routing target until it resolves. After resolution the input box
+returns and the permission-prompt goes dormant (returns `[]` from
+`render`).
+
+#### Option model for M3
+
+Four options, in this order. The first three are direct answers to
+the permission question; the fourth is an always-present escape hatch
+for when none of the canned answers fit:
+
+| Index | Value             | Label                  | Description                                             |
+| ----- | ----------------- | ---------------------- | ------------------------------------------------------- |
+| 0     | `yes`             | Yes                    | Run this command once.                                  |
+| 1     | `yes-always`      | Yes, don't ask again   | Add the pattern to the session allowlist.               |
+| 2     | `no`              | No                     | Skip this command. The agent will not run the tool.    |
+| 3     | `type-something`  | Type something         | Reply in your own words.                                |
+
+A **dim horizontal rule** (`─` repeated to the option-label width)
+separates options 0–2 from option 3 — same visual grouping Claude
+Code uses to distinguish "answers" from "escape hatches."
+
+**Default selection: option 0 (`Yes`).** Matches Claude Code; assumes
+the user invoked an agent that wants tool access. Destructive tools
+should warn in the prompt text, not lean on the default.
+
+**What `type-something` means.** Selecting this option resolves the
+Promise with `"type-something"`. The orchestrator interprets that as
+"prompt is dismissed, give the user the input box back." The user's
+next submitted message is delegated back to the agent loop as a
+clarification (M6+ will route it). The permission-prompt itself
+**does not embed a text input**; freeform typing is the input box's
+job, and reusing the input box rather than duplicating its cursor
+logic keeps the two components decoupled.
+
+**Deferred** (track in TODO follow-ups if/when promoted):
+
+- A 5th `never` option (persistent deny store) — requires M7 deny
+  storage.
+- A 6th `Chat about this` option (conversational fallback) — useful
+  for multi-step forms in M4+ slash commands; not needed for tool
+  permissions.
+- Multi-question tab bar at the top (the `← Lesson / Style / Submit →`
+  pattern in Claude Code) — only relevant when a single prompt asks
+  several questions. Tool permission is single-question.
+
+#### Selection state and rendering
+
+The component tracks `selectedIndex: number` (0..options.length - 1).
+For each option, render two lines:
+
+- **Label row** — `❯ <n>. <label>` if selected, `  <n>. <label>`
+  otherwise. The `❯` caret is 1 column wide; non-selected rows
+  align with two leading spaces so the numbering stays vertical.
+  Selected label renders in `theme.fg('accent')`; non-selected in
+  default fg.
+- **Description row** — two-space indent under the label, in
+  `theme.dim()`. Wrap to `width - 4` cols if it overflows; word-aware
+  is M4 polish, char-boundary is fine for M3.
+
+Spacing:
+
+- One blank line between options (separates the two-line option blocks).
+- A `theme.dim()` help line at the very bottom:
+  `Enter to select · Tab/Arrow keys to navigate · Esc to cancel`.
+
+The prompt header (the wrapping `Allow this command?` line plus the
+`↳ tool("args")` summary) renders above the option list in default
+fg, with a blank line separating header from options.
+
+#### Keyboard map (while permission prompt is active)
+
+| Key                  | Action                                              |
+| -------------------- | --------------------------------------------------- |
+| `↑` / `Shift+Tab`    | Decrement `selectedIndex` (clamp at 0)              |
+| `↓` / `Tab`          | Increment `selectedIndex` (clamp at last index)     |
+| `Enter`              | Resolve with the value of the selected option       |
+| `Esc`                | Resolve with `"no"` (treat as dismissal)            |
+| Digit `1`–`4`        | Jump to option N (M3 has 4 options). Optional shortcut; matches Claude Code |
+| `Ctrl+C`             | Hard abort the whole turn (orchestrator-level, not the prompt's responsibility) |
+
+All other keys are no-ops while the prompt is active — the input box
+does **not** receive them. The orchestrator's key router checks for an
+active permission prompt first and dispatches there.
+
+#### Answer model: Promise-based
+
+The component exposes `show(prompt, patterns)` that returns
+`Promise<"yes" | "yes-always" | "no" | "type-something">`. Internally,
+the show call stores the resolver and flips the component into the
+"active" state; `handleKey` resolves the promise when `Enter` (with
+any selected option) or `Esc` (always resolves `"no"`) fires, then
+clears the resolver and active state. While `show()` hasn't been
+called (or has resolved), `render` returns `[]` — the component is
+dormant and contributes nothing.
+
+This shape lets the agent loop (M6) `await` the answer cleanly:
+
+```ts
+const choice = await permissionPrompt.show({ prompt, patterns });
+switch (choice) {
+  case "yes":            return runTool();
+  case "yes-always":     allowlist.add(patterns); return runTool();
+  case "no":             return skipTool();
+  case "type-something": return awaitUserMessage();  // input box reappears
+}
+```
+
+While the prompt is active, the orchestrator **removes the input
+box from rendering** and routes every key event to the prompt. When
+the Promise resolves the orchestrator reinstates the input box; for
+`type-something` it does so *with focus* so the user's next message
+becomes the freeform answer.
+
+#### Color rules
+
+- **Default fg** for the prompt header text and the non-selected
+  option labels.
+- **Accent fg** for the selected option's label and its `❯` caret.
+- **Dim** for descriptions, the help line, and (if the input box
+  remains visible) the input box's prompt/glyph.
+- **No background fill** on selected rows — the caret + accent fg
+  carry the highlight. A bg fill would compete with the transcript's
+  user-message bars.
 
 ---
 
