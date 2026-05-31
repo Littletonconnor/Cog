@@ -243,9 +243,9 @@ One file per component under `packages/tui/src/components/`. Each implements the
   - **Deferred to M4**: word-aware wrapping (M3 breaks at char boundaries), explicit `Shift+Enter` newlines, history, bracketed paste, `$EDITOR` mode, scrollback for buffers that exceed terminal height.
 - [x] `components/status-bar.ts` — two rows. Top: cwd (full width). Bottom: `<pct>%/<window>k (<mode>)` left, `<model> • thinking <on|off>` right. Static defaults for `mode` and `thinking` until M9 / M5+ wire them up. Per `TUI-DESIGN.md §5`.
 - [x] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
-- [ ] `components/permission-prompt.ts` — **borderless, arrow-nav popover** in the slot normally held by the input box (the orchestrator removes the input box while the prompt is active). 4 options (Yes / Yes, don't ask again / No / Type something), navigated by arrows or Tab/Shift+Tab, confirmed by Enter, dismissed by Esc (resolves `"no"`). `show(args)` returns a `Promise<PermissionChoice>`; throws on re-entry. Implements `Component, KeyHandler` — the new shared interface in `renderer.ts`. Per `TUI-DESIGN.md §4.7`.
-  - **Status:** chunks 1–4 done (types, class skeleton, mutator bodies, `render` body). Chunk 5 (smoke test at `scripts/permission-prompt.ts`) remaining before the component is closed out.
+- [x] `components/permission-prompt.ts` — **borderless, arrow-nav popover** in the slot normally held by the input box (the orchestrator removes the input box while the prompt is active). 4 options (Yes / Yes, don't ask again / No / Type something), navigated by arrows or Tab/Shift+Tab, confirmed by Enter, dismissed by Esc (resolves `"no"`). `show(args)` returns a `Promise<PermissionChoice>`; throws on re-entry. Implements `Component, KeyHandler` — the new shared interface in `renderer.ts`. Per `TUI-DESIGN.md §4.7`.
   - Also done as part of this work: `KeyHandler` interface added to `renderer.ts`; `keys.ts` extended with `tab` variant (`dir: "forward" | "back"`) and parsing for `0x09` + CSI `Z`; `§4.7` design doc rewritten for arrow-nav (single-key shortcuts intentionally not supported).
+  - Smoke test at `packages/tui/src/scripts/permission-prompt.ts` — 10 cases covering all 4 options' resolution values, arrow/Tab navigation, both-side clamping, and the dormant render-after-resolve.
 
 ### M3.5a — Component smoke tests
 
@@ -257,7 +257,7 @@ Run with `node --experimental-strip-types packages/tui/scripts/<name>.ts` (or `n
 - [x] `scripts/smoke-activity-line.ts` — once `activity-line.ts` exists.
 - [x] `scripts/smoke-input-box.ts` — 7 cases: empty box, typing "hello", backspace at end, backspace at empty (no-op), cursor-in-middle insert, arrow boundaries (clamp at start/end), long buffer overflow. Lives at `packages/tui/src/scripts/input-box.ts` (note: in `src/` rather than the originally-planned `packages/tui/scripts/`; consider moving outside `src/` when resuming so it doesn't get compiled into `dist/`).
 - [ ] `scripts/smoke-transcript.ts` — once `transcript.ts` exists.
-- [ ] `scripts/smoke-permission-prompt.ts` — once `permission-prompt.ts` exists.
+- [x] `scripts/smoke-permission-prompt.ts` — Lives at `packages/tui/src/scripts/permission-prompt.ts`. 10 cases: initial render, arrow-down navigation, both clamping edges (up at 0, down past last), Tab/Shift+Tab as arrow aliases, and an Enter case per option (Yes / Yes-always / No / Type-something) that verifies the index-to-value mapping in the resolution log. Helper splits navigation cases (no top-level await) from resolution cases (top-level `await`).
 
 ### M3.6 — TUI orchestration
 
