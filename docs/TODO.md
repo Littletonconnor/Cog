@@ -256,19 +256,23 @@ Run with `node --experimental-strip-types packages/tui/scripts/<name>.ts` (or `n
 - [x] `scripts/smoke-status-bar.ts` — exercise `StatusBar` at widths 80 / 60 / 40, with `thinking` on/off, with a deep cwd that needs left-truncation, and with `tokensUsed > contextWindow` to surface the over-100% case. Verify visually: pipes line up, suffix drops at narrow widths, model truncates last.
 - [x] `scripts/smoke-activity-line.ts` — once `activity-line.ts` exists.
 - [x] `scripts/smoke-input-box.ts` — 7 cases: empty box, typing "hello", backspace at end, backspace at empty (no-op), cursor-in-middle insert, arrow boundaries (clamp at start/end), long buffer overflow. Lives at `packages/tui/src/scripts/input-box.ts` (note: in `src/` rather than the originally-planned `packages/tui/scripts/`; consider moving outside `src/` when resuming so it doesn't get compiled into `dist/`).
-- [ ] `scripts/smoke-transcript.ts` — once `transcript.ts` exists.
+- [x] `scripts/smoke-transcript.ts` — Lives at `packages/tui/src/scripts/transcript.ts`. 9 cases: single user message, user message with wrapping, single assistant message, assistant deltas coalescing into one block, tool lifecycle (start / success / error), error block (recoverable + non-recoverable), and a mixed conversation exercising blank-line spacing between blocks.
 - [x] `scripts/smoke-permission-prompt.ts` — Lives at `packages/tui/src/scripts/permission-prompt.ts`. 10 cases: initial render, arrow-down navigation, both clamping edges (up at 0, down past last), Tab/Shift+Tab as arrow aliases, and an Enter case per option (Yes / Yes-always / No / Type-something) that verifies the index-to-value mapping in the resolution log. Helper splits navigation cases (no top-level await) from resolution cases (top-level `await`).
 
 ### M3.6 — TUI orchestration
 
 Pulls everything together into one class that's easy to use from `cog`.
 
-- [ ] `packages/tui/src/index.ts` — exports a `TUI` class.
-- [ ] `new TUI()` builds the root component tree (transcript at top, activity line, input box, status bar).
-- [ ] `tui.start()` enters alt screen, hides cursor, attaches stdin handler, kicks off the render loop.
-- [ ] `tui.stop()` exits alt screen, shows cursor, detaches handlers, restores raw mode.
-- [ ] `tui.handleEvent(event: StreamEvent)` — the bridge between the provider stream and the components (see §M3.7).
-- [ ] Re-export `Component`, `Theme`, `KeyEvent` for downstream packages.
+Broken into 5 chunks: (1) class skeleton + render composition; (2) lifecycle (start/stop); (3) key routing; (4) `handleEvent(StreamEvent)` mapping = §M3.7 bridge; (5) wire into `cog` = §M3.8.
+
+- [x] `packages/tui/src/index.ts` — exports a `TUI` class implementing `Component`. (Chunk 1)
+- [x] `new TUI()` builds the root component tree — instantiates `Transcript`, `ActivityLine(null)`, `InputBox`, `PermissionPrompt`, `StatusBar(cwd, "mock", 200k, 0)`. `render(width, theme)` stacks them vertically: transcript → activity → (permission prompt OR input box, mutually exclusive via `promptLines.length > 0` check) → status bar. (Chunk 1)
+- [ ] `tui.start()` enters alt screen, hides cursor, attaches stdin handler, kicks off the render loop. **(Chunk 2 — next pickup)**
+- [ ] `tui.stop()` exits alt screen, shows cursor, detaches handlers, restores raw mode. (Chunk 2)
+- [ ] Key routing: a single `onKey` subscription routes each `KeyEvent` to either the permission prompt (if active) or the input box. (Chunk 3)
+- [ ] `tui.handleEvent(event: StreamEvent)` — the bridge between the provider stream and the components (see §M3.7). (Chunk 4)
+- [ ] Re-export `Component`, `Theme`, `KeyEvent`, `KeyHandler` for downstream packages. (End of M3.6)
+- **Open detail from chunk 1 review**: type-only imports for `Component` and `Theme` (currently value imports — minor, doesn't break anything). Address in the next touch of the file.
 
 ### M3.7 — Event-to-state mapping
 
