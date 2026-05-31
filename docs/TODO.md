@@ -243,7 +243,9 @@ One file per component under `packages/tui/src/components/`. Each implements the
   - **Deferred to M4**: word-aware wrapping (M3 breaks at char boundaries), explicit `Shift+Enter` newlines, history, bracketed paste, `$EDITOR` mode, scrollback for buffers that exceed terminal height.
 - [x] `components/status-bar.ts` — two rows. Top: cwd (full width). Bottom: `<pct>%/<window>k (<mode>)` left, `<model> • thinking <on|off>` right. Static defaults for `mode` and `thinking` until M9 / M5+ wire them up. Per `TUI-DESIGN.md §5`.
 - [x] `components/activity-line.ts` — the spinner above the input box. Renders one line: `⣾ <label>` when active, empty when idle. Cycles spinner frame every 80ms (the renderer's tick advances it). Per `TUI-DESIGN.md §4.3`.
-- [ ] `components/permission-prompt.ts` — the inline approval block (`TUI-DESIGN.md §4.7`). Renders inside the transcript when a `permission_ask` event fires; captures `y/a/n/N` keys; resolves a promise the event reducer is awaiting.
+- [ ] `components/permission-prompt.ts` — **borderless, arrow-nav popover** in the slot normally held by the input box (the orchestrator removes the input box while the prompt is active). 4 options (Yes / Yes, don't ask again / No / Type something), navigated by arrows or Tab/Shift+Tab, confirmed by Enter, dismissed by Esc (resolves `"no"`). `show(args)` returns a `Promise<PermissionChoice>`; throws on re-entry. Implements `Component, KeyHandler` — the new shared interface in `renderer.ts`. Per `TUI-DESIGN.md §4.7`.
+  - **Status:** chunks 1–4 done (types, class skeleton, mutator bodies, `render` body). Chunk 5 (smoke test at `scripts/permission-prompt.ts`) remaining before the component is closed out.
+  - Also done as part of this work: `KeyHandler` interface added to `renderer.ts`; `keys.ts` extended with `tab` variant (`dir: "forward" | "back"`) and parsing for `0x09` + CSI `Z`; `§4.7` design doc rewritten for arrow-nav (single-key shortcuts intentionally not supported).
 
 ### M3.5a — Component smoke tests
 
@@ -435,6 +437,18 @@ these are known gaps in code that already exists, not speculative features.
   an `FgRole` (so `theme.fg("dim")` works) *and* a standalone `theme.dim()`
   method — two spellings for the same `\x1b[2m` escape. Pick one; convention so
   far is `theme.dim()`.
+- **Extract `wrapText` to a shared util.** Now duplicated across
+  `transcript.ts` and `permission-prompt.ts` (`input-box.ts` has its own
+  `wrapBuffer` with cursor math — leave that separate). Three consumers
+  exists when permission-prompt's smoke test lands; that's the canonical
+  "extract" threshold. Suggested home: `packages/tui/src/util/text.ts`.
+- **`PermissionPrompt.cancel(reason)` method.** Currently the prompt never
+  rejects its Promise — all paths resolve (Enter → choice, Esc → `"no"`).
+  External cancellation (Ctrl-C while prompt active, `stop` event mid-prompt,
+  TUI teardown) has no graceful path; the pending Promise hangs forever
+  until the process exits. Add a `cancel(reason: string)` method that
+  rejects + clears, plus a `rejector` field captured in `show()`. Needed
+  once M3.7 wires the `stop` event handler or M3.6 routes Ctrl-C.
 
 ---
 

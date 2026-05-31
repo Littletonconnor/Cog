@@ -457,10 +457,11 @@ fg, with a blank line separating header from options.
 | -------------------- | --------------------------------------------------- |
 | `↑` / `Shift+Tab`    | Decrement `selectedIndex` (clamp at 0)              |
 | `↓` / `Tab`          | Increment `selectedIndex` (clamp at last index)     |
+| `←` / `→`            | No-op (reserved; permission prompt doesn't navigate horizontally) |
 | `Enter`              | Resolve with the value of the selected option       |
 | `Esc`                | Resolve with `"no"` (treat as dismissal)            |
-| Digit `1`–`4`        | Jump to option N (M3 has 4 options). Optional shortcut; matches Claude Code |
 | `Ctrl+C`             | Hard abort the whole turn (orchestrator-level, not the prompt's responsibility) |
+| Any other char       | No-op. Digit shortcuts intentionally not supported — keep the navigation surface minimal. |
 
 All other keys are no-ops while the prompt is active — the input box
 does **not** receive them. The orchestrator's key router checks for an
