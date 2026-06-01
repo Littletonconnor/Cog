@@ -267,12 +267,13 @@ Broken into 5 chunks: (1) class skeleton + render composition; (2) lifecycle (st
 
 - [x] `packages/tui/src/index.ts` — exports a `TUI` class implementing `Component`. (Chunk 1)
 - [x] `new TUI()` builds the root component tree — instantiates `Transcript`, `ActivityLine(null)`, `InputBox`, `PermissionPrompt`, `StatusBar(cwd, "mock", 200k, 0)`. `render(width, theme)` stacks them vertically: transcript → activity → (permission prompt OR input box, mutually exclusive via `promptLines.length > 0` check) → status bar. (Chunk 1)
-- [ ] `tui.start()` enters alt screen, hides cursor, attaches stdin handler, kicks off the render loop. **(Chunk 2 — next pickup)**
-- [ ] `tui.stop()` exits alt screen, shows cursor, detaches handlers, restores raw mode. (Chunk 2)
-- [ ] Key routing: a single `onKey` subscription routes each `KeyEvent` to either the permission prompt (if active) or the input box. (Chunk 3)
+- [x] `tui.start()` enters alt screen, hides cursor, attaches stdin handler, kicks off the render loop. Calls `setupTerminal()`, constructs a `Renderer(terminalHandle, theme)`, mounts `this`, subscribes via `onKey(() => {})` (handler stub — chunk 3 replaces with real routing), and stores the unsubscribe in `this.unsubscribeKey`. (Chunk 2)
+- [x] `tui.stop()` exits alt screen, shows cursor, detaches handlers, restores raw mode. Unsubscribes the key listener first, then reverses the terminal setup in LIFO order (`showCursor` → `altScreenExit` → `exitRawMode`). Clears `renderer` and `unsubscribeKey` refs so a second `start()` is re-entrant. (Chunk 2)
+- [x] Type-only imports for `Component` and `Theme` cleaned up while in the file. (Open detail from chunk 1 — resolved)
+- [ ] Key routing: a single `onKey` subscription routes each `KeyEvent` to either the permission prompt (if active) or the input box. Currently `start()` subscribes with a `() => {}` no-op handler — replace with the real routing function. **(Chunk 3 — next pickup)**
 - [ ] `tui.handleEvent(event: StreamEvent)` — the bridge between the provider stream and the components (see §M3.7). (Chunk 4)
 - [ ] Re-export `Component`, `Theme`, `KeyEvent`, `KeyHandler` for downstream packages. (End of M3.6)
-- **Open detail from chunk 1 review**: type-only imports for `Component` and `Theme` (currently value imports — minor, doesn't break anything). Address in the next touch of the file.
+- Side-effect of chunk 2: new `terminalHandle` constant exported from `terminal.ts` (concrete implementation of the `TerminalHandle` type; built from the module's existing function exports). Used by `Renderer`'s constructor.
 
 ### M3.7 — Event-to-state mapping
 
