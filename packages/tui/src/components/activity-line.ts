@@ -11,8 +11,8 @@
  * @see docs/TUI-DESIGN.md §4.3
  */
 
-import type { Component } from '../renderer.js';
-import type { Theme } from '../theme/index.js';
+import type { Component } from "../renderer.js";
+import type { Theme } from "../theme/index.js";
 
 /**
  * Braille spinner frames. Eight glyphs that read as a rotating dot when
@@ -21,7 +21,7 @@ import type { Theme } from '../theme/index.js';
  * Terminals without braille support degrade to mojibake; the design doc
  * deferred the `|/-\` fallback to M4.
  */
-const FRAMES = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'] as const;
+const FRAMES = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"] as const;
 
 /**
  * Wall-clock interval between spinner frames in milliseconds. 80ms ≈ 12.5fps,
@@ -39,7 +39,7 @@ export class ActivityLine implements Component {
    *               row in the layout and renders an empty line so the rest
    *               of the screen doesn't jump.
    */
-  constructor(private readonly label: string | null) {}
+  constructor(private label: string | null) {}
 
   /**
    * Render the activity line for one frame.
@@ -61,10 +61,15 @@ export class ActivityLine implements Component {
    * and callers pass short labels per `TUI-DESIGN.md §4.3`.
    */
   render(_: number, theme: Theme) {
-    if (this.label === null) return [''];
+    if (this.label === null) return [""];
 
-    const frame = FRAMES[Math.floor(Date.now() / FRAME_INTERVAL_MS) % FRAMES.length];
+    const frame =
+      FRAMES[Math.floor(Date.now() / FRAME_INTERVAL_MS) % FRAMES.length];
 
-    return [`${theme.fg('accent') + frame + theme.reset()} ${this.label}`];
+    return [`${theme.fg("accent") + frame + theme.reset()} ${this.label}`];
+  }
+
+  setLabel(label: string | null) {
+    this.label = label;
   }
 }

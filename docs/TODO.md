@@ -270,10 +270,12 @@ Broken into 5 chunks: (1) class skeleton + render composition; (2) lifecycle (st
 - [x] `tui.start()` enters alt screen, hides cursor, attaches stdin handler, kicks off the render loop. Calls `setupTerminal()`, constructs a `Renderer(terminalHandle, theme)`, mounts `this`, subscribes via `onKey(() => {})` (handler stub — chunk 3 replaces with real routing), and stores the unsubscribe in `this.unsubscribeKey`. (Chunk 2)
 - [x] `tui.stop()` exits alt screen, shows cursor, detaches handlers, restores raw mode. Unsubscribes the key listener first, then reverses the terminal setup in LIFO order (`showCursor` → `altScreenExit` → `exitRawMode`). Clears `renderer` and `unsubscribeKey` refs so a second `start()` is re-entrant. (Chunk 2)
 - [x] Type-only imports for `Component` and `Theme` cleaned up while in the file. (Open detail from chunk 1 — resolved)
-- [ ] Key routing: a single `onKey` subscription routes each `KeyEvent` to either the permission prompt (if active) or the input box. Currently `start()` subscribes with a `() => {}` no-op handler — replace with the real routing function. **(Chunk 3 — next pickup)**
-- [ ] `tui.handleEvent(event: StreamEvent)` — the bridge between the provider stream and the components (see §M3.7). (Chunk 4)
-- [ ] Re-export `Component`, `Theme`, `KeyEvent`, `KeyHandler` for downstream packages. (End of M3.6)
+- [x] Key routing: `onKey` callback in `start()` picks `permissionPrompt` if `isActive()`, otherwise `inputBox`, then dispatches via the shared `KeyHandler.handleKey` contract and schedules a redraw. (Chunk 3)
+- [x] `tui.handleEvent(event: StreamEvent)` — async switch over all 10 StreamEvent variants with exhaustive `never` default. Dispatches to the right component's mutator; single `scheduleRedraw()` after the switch. (Chunk 4)
+- [ ] Re-export `Component`, `Theme`, `KeyEvent`, `KeyHandler` for downstream packages. **(Chunk 5 / M3.8 next pickup)**
 - Side-effect of chunk 2: new `terminalHandle` constant exported from `terminal.ts` (concrete implementation of the `TerminalHandle` type; built from the module's existing function exports). Used by `Renderer`'s constructor.
+- Side-effect of chunk 3: added `PermissionPrompt.isActive(): boolean` so the orchestrator can ask "is this the focus target?" without inspecting render output.
+- Side-effect of chunk 4: added `ActivityLine.setLabel(label: string \| null)` and `StatusBar.setTokens(n: number)` mutators (replaced their previously-immutable constructor fields with writable ones). Added `providers` as a workspace dep of `tui` so `StreamEvent` is typed.
 
 ### M3.7 — Event-to-state mapping
 
@@ -447,6 +449,15 @@ these are known gaps in code that already exists, not speculative features.
   `wrapBuffer` with cursor math — leave that separate). Three consumers
   exists when permission-prompt's smoke test lands; that's the canonical
   "extract" threshold. Suggested home: `packages/tui/src/util/text.ts`.
+- **Status bar compaction indicator** (`packages/tui/src/components/status-bar.ts`).
+  M3 ships no visual indicator while compaction is in flight — the `compact_start`
+  StreamEvent is a no-op in `TUI.handleEvent`, and `compact_end` just updates
+  the token count via `setTokens`. Per `TUI-DESIGN.md §4.14` and `§5`, the
+  status bar's top row should flip to a `⋯ compacting` marker in
+  `theme.fg("warning")` between the two events. Add a `setCompacting(active: boolean)`
+  mutator on `StatusBar`, render-time conditional on the top row, and a
+  `compact_start` branch in `handleEvent` that calls `setCompacting(true)`
+  (and clears it in `compact_end`).
 - **`PermissionPrompt.cancel(reason)` method.** Currently the prompt never
   rejects its Promise — all paths resolve (Enter → choice, Esc → `"no"`).
   External cancellation (Ctrl-C while prompt active, `stop` event mid-prompt,

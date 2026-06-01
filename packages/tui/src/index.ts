@@ -1,3 +1,4 @@
+import type { StreamEvent } from "providers";
 import { ActivityLine } from "./components/activity-line.js";
 import { InputBox } from "./components/input-box.js";
 import { PermissionPrompt } from "./components/permission-prompt.js";
@@ -36,9 +37,11 @@ export class TUI implements Component {
   render(width: number, theme: Theme): string[] {
     const transcriptLines = this.transcript.render(width, theme);
     const activityLines = this.activityLine.render(width, theme);
-    const promptLines = this.permissionPrompt.render(width, theme);
-    const inputLines =
-      promptLines.length > 0 ? [] : this.inputBox.render(width, theme);
+    const isPromptActive = this.permissionPrompt.isActive();
+    const promptLines = isPromptActive
+      ? this.permissionPrompt.render(width, theme)
+      : [];
+    const inputLines = isPromptActive ? [] : this.inputBox.render(width, theme);
     const statusLines = this.statusBar.render(width, theme);
 
     return [
@@ -54,7 +57,13 @@ export class TUI implements Component {
     setupTerminal();
     this.renderer = new Renderer(terminalHandle, theme);
     this.renderer.mount(this);
-    this.unsubscribeKey = onKey(() => {});
+    this.unsubscribeKey = onKey((event) => {
+      const target = this.permissionPrompt.isActive()
+        ? this.permissionPrompt
+        : this.inputBox;
+      target.handleKey(event);
+      this.renderer?.scheduleRedraw();
+    });
   }
 
   stop() {
@@ -66,5 +75,52 @@ export class TUI implements Component {
     this.renderer = null;
   }
 
-  handleEvent(_event: unknown) {}
+  async handleEvent(event: StreamEvent) {
+    switch (event.type) {
+      case "text_delta":
+        this.transcript.appendAssistantDelta(event.delta);
+        break;
+      case "tool_use_start":
+        this.transcript.startTool(event.id, event.name, event.input);
+        break;
+      case "tool_use_running":
+        if (event.partialOutput !== undefined) {
+          this.transcript.updateTool(event.id, event.partialOutput);
+        }
+        break;
+      case "tool_use_end":
+        this.transcript.finalizeTool(
+          event.id,
+          event.result.map((c) => c.text).join("\n"),
+          event.isError,
+        );
+        break;
+      case "permission_ask":
+        // M6 will route this back to the tool-dispatch decision
+        await this.permissionPrompt.show({
+          prompt: event.prompt,
+          patterns: event.patterns,
+        });
+        break;
+      case "status_change":
+        this.activityLine.setLabel(event.active);
+        break;
+      case "error":
+        this.transcript.appendError(event.message, event.recoverable);
+        break;
+      case "stop":
+        // no-op: in-flight state auto-clears on next event in M3
+        break;
+      case "compact_start":
+        // TODO: NO visual indicator (deferred); no-op
+        break;
+      case "compact_end":
+        this.statusBar.setTokens(event.tokensAfter);
+        break;
+      default:
+        const _exhaustive: never = event;
+        break;
+    }
+    this.renderer?.scheduleRedraw();
+  }
 }
