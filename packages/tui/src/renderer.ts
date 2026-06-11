@@ -11,9 +11,9 @@
  * @see docs/TUI-DESIGN.md §7 (redraw policy) and docs/RESEARCH.md §2.
  */
 
-import type { KeyEvent } from './keys.js';
-import type { TerminalHandle } from './terminal.js';
-import type { Theme } from './theme/index.js';
+import type { KeyEvent } from "./keys.js";
+import type { TerminalHandle } from "./terminal.js";
+import type { Theme } from "./theme/index.js";
 
 /**
  * A pure renderable unit. Given the available width and the active theme,
@@ -82,6 +82,26 @@ export class Renderer {
   }
 
   /**
+   * Detach the root component and release event-loop resources. Cancels
+   * any pending redraw timer and clears the root reference so a stale
+   * `setTimeout` callback can't write ANSI escapes after the orchestrator
+   * has already torn down the terminal.
+   *
+   * Called from `TUI.stop()`. Without this, the renderer's coalescing
+   * timer (a 16ms `setTimeout` outstanding when `stop()` fires) would
+   * keep Node's event loop alive past process exit *and* would emit
+   * cursor-positioning escapes into the user's restored shell when it
+   * eventually fired. Matches the lifecycle contract of `mount()`.
+   */
+  unmount() {
+    if (this.redrawTimer !== null) {
+      clearTimeout(this.redrawTimer);
+      this.redrawTimer = null;
+    }
+    this.root = null;
+  }
+
+  /**
    * Request a redraw. Idempotent within a single 16ms window — if a redraw
    * is already pending, subsequent calls are no-ops. Call this whenever
    * application state changes; the renderer takes care of batching.
@@ -128,7 +148,7 @@ export class Renderer {
     for (let i = firstChanged; i <= lastChanged; i++) {
       this.terminal.cursorTo(i + 1, 1); // ANSI is 1-indexed
       this.terminal.clearLine();
-      this.terminal.write(newLines[i] ?? '');
+      this.terminal.write(newLines[i] ?? "");
     }
     this.terminal.syncOutputEnd();
 

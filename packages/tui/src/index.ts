@@ -67,15 +67,20 @@ export class TUI implements Component {
   }
 
   stop() {
+    this.renderer?.unmount();
     this.unsubscribeKey?.();
     this.unsubscribeKey = null;
+    process.stdout.write("\x1b[0m");
     showCursor();
     altScreenExit();
     exitRawMode();
+    process.stdin.pause();
+    process.stdout.write("\r\n");
     this.renderer = null;
   }
 
   async handleEvent(event: StreamEvent) {
+    this.renderer?.scheduleRedraw();
     switch (event.type) {
       case "text_delta":
         this.transcript.appendAssistantDelta(event.delta);
@@ -109,7 +114,7 @@ export class TUI implements Component {
         this.transcript.appendError(event.message, event.recoverable);
         break;
       case "stop":
-        // no-op: in-flight state auto-clears on next event in M3
+        this.activityLine.setLabel(null);
         break;
       case "compact_start":
         // TODO: NO visual indicator (deferred); no-op
@@ -124,3 +129,5 @@ export class TUI implements Component {
     this.renderer?.scheduleRedraw();
   }
 }
+
+export { onKey } from "./terminal.js";

@@ -1,6 +1,7 @@
-import { MockProvider } from 'providers';
-import { printHelpMessage } from './help.js';
-import { cli } from './parser.js';
+import { MockProvider } from "providers";
+import { printHelpMessage } from "./help.js";
+import { cli } from "./parser.js";
+import { onKey, TUI } from "tui";
 
 export async function main() {
   try {
@@ -10,17 +11,30 @@ export async function main() {
     if (cliFlags.help || !hasFlags) {
       printHelpMessage();
     } else if (cliFlags.mock) {
-      // TODO: eventually replace with TUI
       const controller = new AbortController();
-      process.once('SIGINT', () => controller.abort());
+      process.once("SIGINT", () => controller.abort());
       const mockProvider = new MockProvider(cliFlags.mock);
       const events = mockProvider.stream({
         messages: [],
-        model: 'mock',
+        model: "mock",
         signal: controller.signal,
       });
-      for await (const event of events) {
-        console.log(JSON.stringify(event));
+      const tui = new TUI();
+      tui.start();
+      try {
+        for await (const event of events) {
+          await tui.handleEvent(event);
+        }
+        await new Promise<void>((resolve) => {
+          const unsubscribe = onKey((event) => {
+            if (event.type === "esc" || event.type === "ctrl-c") {
+              unsubscribe();
+              resolve();
+            }
+          });
+        });
+      } finally {
+        tui.stop();
       }
     }
   } catch (error: unknown) {
