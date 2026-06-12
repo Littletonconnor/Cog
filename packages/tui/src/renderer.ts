@@ -23,7 +23,7 @@ import type { Theme } from './theme/index.js';
  * for embedding ANSI escapes via the passed `theme`. The renderer treats
  * each line as an opaque string for diff purposes.
  */
-export interface Component {
+interface Component {
   render(width: number, theme: Theme): string[];
 }
 
@@ -47,7 +47,7 @@ export interface Component {
  * established pattern (a discriminated-union `switch` with a `default`
  * that returns).
  */
-export interface KeyHandler {
+interface KeyHandler {
   handleKey(event: KeyEvent): void;
 }
 
@@ -55,7 +55,7 @@ export interface KeyHandler {
  * within a single tick collapse into one repaint. */
 const REDRAW_INTERVAL_MS = 16;
 
-export class Renderer {
+class Renderer {
   /** The mounted root component, or `null` before `mount()` is called. */
   private root: Component | null = null;
 
@@ -155,3 +155,6 @@ export class Renderer {
     this.previousLines = newLines;
   }
 }
+
+export type { Component, KeyHandler };
+export { Renderer };

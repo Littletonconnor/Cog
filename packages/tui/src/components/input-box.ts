@@ -80,7 +80,7 @@ type WrappedBuffer = {
  */
 const INNER_WIDTH_DELTA = 2;
 
-export class InputBox implements Component, KeyHandler {
+class InputBox implements Component, KeyHandler {
   /**
    * The text the user has typed so far. Mutated by `handleKey()`; reset
    * by `clear()`.
@@ -119,7 +119,7 @@ export class InputBox implements Component, KeyHandler {
   render(width: number, theme: Theme): string[] {
     const innerWidth = width - INNER_WIDTH_DELTA;
     const { rows, cursorRow, cursorCol } = maybeWrapBuffer(this.buffer, this.cursorPos, innerWidth);
-    const styledPrompt = theme.dim() + GLYPHS.prompt + theme.reset();
+    const styledPrompt = theme.fg('dim') + GLYPHS.prompt + theme.reset();
 
     const contentLines: string[] = [];
     for (let i = 0; i < rows.length; i++) {
@@ -236,3 +236,5 @@ function maybeWrapBuffer(buffer: string, cursorPos: number, innerWidth: number):
     cursorCol,
   };
 }
+
+export { InputBox };

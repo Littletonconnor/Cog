@@ -1,6 +1,6 @@
 import type { BgRole, FgRole, Theme } from './index.js';
 
-export const theme = {
+const theme = {
   fg: (role: FgRole) => {
     switch (role) {
       case 'default':
@@ -41,7 +41,6 @@ export const theme = {
   italic: () => {
     return '\x1b[3m';
   },
-  dim: () => {
-    return '\x1b[2m';
-  },
 } satisfies Theme;
+
+export { theme };

@@ -3,7 +3,7 @@
  * cwd (full width). Bottom row shows context usage on the left and the model
  * id + extended-thinking state on the right.
  *
- * Both rows render in `theme.dim()` — the bar is secondary chrome, not focal
+ * Both rows render in `theme.fg('dim')` — the bar is secondary chrome, not focal
  * content. Width-aware degradation: when the bottom row's two halves can't
  * fit with a 2-char gap, the ` • thinking <state>` suffix drops first, then
  * the model id truncates from the right.
@@ -22,11 +22,11 @@ import type { Theme } from '../theme/index.js';
  * decide when to summarize older messages; `manual` leaves it to the user.
  * Wired statically until M9 introduces the real toggle.
  */
-export type CompactionMode = 'auto' | 'manual';
+type CompactionMode = 'auto' | 'manual';
 
 const GAP = 2;
 
-export class StatusBar implements Component {
+class StatusBar implements Component {
   /**
    * @param cwd            Tilde-expanded working directory. Caller is
    *                       responsible for normalization.
@@ -68,7 +68,7 @@ export class StatusBar implements Component {
     const top = truncateLeft(this.cwd, width);
     const bottom = padBetween(left, right, width);
 
-    return [theme.dim() + top + theme.reset(), theme.dim() + bottom + theme.reset()];
+    return [theme.fg('dim') + top + theme.reset(), theme.fg('dim') + bottom + theme.reset()];
   }
 
   setTokens(tokens: number) {
@@ -127,3 +127,6 @@ function padBetween(left: string, right: string, width: number) {
 
   return left + ' '.repeat(Math.max(gap, 0)) + right;
 }
+
+export type { CompactionMode };
+export { StatusBar };

@@ -31,7 +31,7 @@ const FRAMES = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'] as const
  */
 const FRAME_INTERVAL_MS = 80;
 
-export class ActivityLine implements Component {
+class ActivityLine implements Component {
   /**
    * @param label  Human-readable activity description (`"thinking"`,
    *               `"read_file"`, etc.) or `null` when idle. The component
@@ -72,3 +72,5 @@ export class ActivityLine implements Component {
     this.label = label;
   }
 }
+
+export { ActivityLine };

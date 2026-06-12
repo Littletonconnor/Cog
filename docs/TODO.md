@@ -1,8 +1,8 @@
 # Cog — TODO
 
-> **Current milestone: M3 — Bare TUI against the mock.**
-> Work top to bottom. Check items as you complete them.
-> M0, M1, and M2 are done.
+> **Current milestone: M4 — TUI polish.**
+> Work top to bottom *or* à la carte — M4 is less linear than M3.
+> M0, M1, M2, and M3 are done.
 
 ---
 
@@ -324,20 +324,76 @@ Replace the M2.5 stdout dumper. ~20 lines of work.
 
 ### M3.10 — Commit
 
-- [ ] Single commit: `feat(tui): M3 bare TUI consuming StreamEvents from MockProvider`
+- [x] Single commit: `feat(tui): M3 bare TUI consuming StreamEvents from MockProvider`
 
 ---
 
 ## M4 — TUI polish
 
-- Token / cost display in status bar
-- Explicit newlines in input box (`Shift+Enter` inserts `\n` into the buffer; M3 already handles soft wrap at the right edge)
-- Word-aware wrapping (M3 breaks at character boundaries; M4 prefers word boundaries when possible)
-- `$EDITOR` mode for long writes (`Ctrl+E` to open vim/code)
-- Paste handling (bracketed paste)
-- Themes
-- Slash command palette
-- Scrollback / page-up / search
+Goal: clear M3 Follow-ups (the debt sitting in the Follow-ups section below) **and** ship the polish features that were scoped out of M3. Order is flexible — pick a sub-milestone per session based on appetite and time. The chunk plan stays cheap to skip around because each sub-milestone is genuinely independent.
+
+### M4.1 — Quick wins from M3 Follow-ups ✅
+
+Small, mechanical fixes. Most are under 15 minutes each. A reasonable first M4 session.
+
+- [x] Drop the trailing `scheduleRedraw()` at the bottom of `TUI.handleEvent` in `packages/tui/src/index.ts`. Done.
+- [x] Move smoke script from `packages/tui/src/scripts/input-box.ts` to `packages/tui/scripts/input-box.ts`. Done.
+- [x] Resolve theme `dim` redundancy. Chose `fg('dim')` as the canonical spelling; `theme.dim()` method removed from the `Theme` interface. All call sites in status-bar, permission-prompt, transcript, and input-box now use `theme.fg('dim')`. Note: this is the opposite of the original recommendation — turned out cleaner because `dim` is now treated as just another color role (consistent with `accent`/`success`/`danger`/`warning`) and the remaining `bold`/`italic`/`reset` methods are genuinely attribute helpers.
+- [x] Extract `wrapText` to `packages/tui/src/utils.ts` (filename simplified from the proposed `util/text.ts`). Both transcript and permission-prompt import from it. `input-box.ts`'s wrap helper (now renamed to `maybeWrapBuffer`) stays separate — has cursor math.
+
+### M4.2 — Error message continuation indent
+
+`transcript.ts`'s `error` case wraps the message but puts the `✗ ` marker only on the first line; continuation lines start at column 0 instead of indenting 2 spaces to align under the message text. Same continuation-indent pattern as the input box's `> ` prompt.
+
+### M4.3 — Status bar compaction indicator
+
+Per `TUI-DESIGN.md §4.14` and `§5`. Add a `setCompacting(active: boolean)` mutator on `StatusBar`. Render the top row as `⋯ compacting` in `theme.fg("warning")` when active. `TUI.handleEvent`'s `compact_start` branch sets it to `true` (and optionally calls `setTokens(event.tokensBefore)` so the bar shows the pre-compaction value during the pause); `compact_end` flips it back to `false` and updates tokens to `tokensAfter`.
+
+### M4.4 — Tool block rich rendering
+
+The big one from M3 Follow-ups. Currently the `tool` case in `transcript.ts` renders just `<glyph> <name>`. Add per `§4.5`:
+
+- Result body, collapsed to first 3 lines.
+- `… (N more lines)` truncation indicator when the result is longer.
+- Live partial-output display during `running` (update on `tool_use_running`'s `partialOutput`).
+- Color: status glyph colored (already done), result body dim.
+- Expand-on-demand (defer the input shortcut to M4.10 slash commands or stash for later).
+
+### M4.5 — Word-aware wrapping
+
+Both `wrapText` (transcript/permission-prompt) and `wrapBuffer` (input box) currently break at character boundaries. Update to prefer word boundaries when possible; falls back to char-break if a single "word" exceeds the wrap width. Should land *after* M4.1's `wrapText` extraction so there's one canonical helper to update.
+
+### M4.6 — Multi-line input (Shift+Enter)
+
+Add `{ type: "shift-enter" }` (or extend `enter` with a `shift: boolean` field) to `KeyEvent`. Parse the byte sequence in `keys.ts`. `InputBox.handleKey` inserts `\n` into the buffer. `wrapBuffer` updates to break on both width *and* explicit newlines so each `\n` starts a new wrapped row with the continuation indent.
+
+### M4.7 — Bracketed paste
+
+Add bracketed paste byte parsing (`\x1b[200~` ... `\x1b[201~`). Either extend `char` event with multi-char `value` (already handled in InputBox via `event.value.length`) or add a `paste` variant. `InputBox.handleKey` inserts the pasted content at the cursor.
+
+### M4.8 — Themes
+
+Define a theme registry. Add a `light` theme alongside `default`. Wire a `--theme <name>` CLI flag. Touches `theme/`, `default.ts`, `cog/src/parser.ts`, and any place that imports the default theme directly (replace with the resolved theme).
+
+### M4.9 — `$EDITOR` mode (Ctrl+E)
+
+In the input box, `Ctrl+E` opens the current buffer in `$EDITOR` (vim, code, etc.). Suspends the TUI (`tui.stop()`), spawns the editor, reads back the saved content, restarts the TUI with the new buffer. Useful for long-form input.
+
+### M4.10 — Slash command palette
+
+Big feature. Typing `/` opens an autocomplete palette of built-in commands. Each command's behavior is defined by per-command logic — `/help`, `/clear`, `/quit` first. Per-command sub-checklists when this one starts.
+
+### M4.11 — Scrollback / page-up / search
+
+Big feature. Transcript becomes scrollable. `PgUp` / `PgDn` / mouse wheel for navigation. Search within transcript. Returns to bottom on any new event or input.
+
+### M4.12 — `PermissionPrompt.cancel(reason)`
+
+External cancellation path for the permission prompt — rejects the pending Promise instead of resolving it. Triggered by `stop` event mid-prompt, Ctrl+C during a prompt, or TUI teardown. Needed if any of those code paths shows up before then.
+
+### M4.13 — Verification + commit
+
+`pnpm typecheck`, `pnpm lint`, `pnpm build` all green. Visual verification of every feature added during M4 in turn. Single squashed commit: `feat(tui): M4 polish — wrap, paste, multi-line, themes, ...`.
 
 ---
 
@@ -439,19 +495,6 @@ these are known gaps in code that already exists, not speculative features.
   Wrapped error messages put the `✗ ` marker only on the first line;
   continuation lines start at column 0 instead of indenting 2 spaces to align
   under the message text. Same continuation-indent pattern as the input box.
-- **Move `smoke-input-box.ts` out of `src/`.** Currently at
-  `packages/tui/src/scripts/input-box.ts`, so `tsc` compiles it into `dist/`.
-  Move to `packages/tui/scripts/` (sibling of `src/`) to match the other
-  smoke scripts and keep `dist/` clean.
-- **Theme `dim` redundancy** (`packages/tui/src/theme/`). `dim` exists as both
-  an `FgRole` (so `theme.fg("dim")` works) *and* a standalone `theme.dim()`
-  method — two spellings for the same `\x1b[2m` escape. Pick one; convention so
-  far is `theme.dim()`.
-- **Extract `wrapText` to a shared util.** Now duplicated across
-  `transcript.ts` and `permission-prompt.ts` (`input-box.ts` has its own
-  `wrapBuffer` with cursor math — leave that separate). Three consumers
-  exists when permission-prompt's smoke test lands; that's the canonical
-  "extract" threshold. Suggested home: `packages/tui/src/util/text.ts`.
 - **Status bar compaction indicator** (`packages/tui/src/components/status-bar.ts`).
   M3 ships no visual indicator while compaction is in flight — the `compact_start`
   StreamEvent is a no-op in `TUI.handleEvent`, and `compact_end` just updates

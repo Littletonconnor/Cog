@@ -21,6 +21,7 @@
 import type { KeyEvent } from '../keys.js';
 import type { Component, KeyHandler } from '../renderer.js';
 import type { Theme } from '../theme/index.js';
+import { wrapText } from '../utils.js';
 
 /**
  * The user's answer to a permission ask. Resolved by `show()`'s Promise.
@@ -91,7 +92,7 @@ const OPTIONS: ReadonlyArray<Option> = [
   },
 ];
 
-export class PermissionPrompt implements Component, KeyHandler {
+class PermissionPrompt implements Component, KeyHandler {
   /**
    * The current prompt's question text, or `null` when dormant. Set
    * by `show()`, cleared by `clear()`. Invariant: `prompt` and
@@ -156,7 +157,7 @@ export class PermissionPrompt implements Component, KeyHandler {
     for (let i = 0; i < OPTIONS.length; i++) {
       const option = OPTIONS[i];
       if (option.value === 'type-something') {
-        lines.push(`  ${theme.dim()}${'─'.repeat(width - 4)}${theme.reset()}`);
+        lines.push(`  ${theme.fg('dim')}${'─'.repeat(width - 4)}${theme.reset()}`);
       }
       const isSelected = i === this.selectedIndex;
       const caret = isSelected ? `${theme.fg('accent') + GLYPHS.prompt} ${theme.reset()}` : '  ';
@@ -164,13 +165,13 @@ export class PermissionPrompt implements Component, KeyHandler {
         ? `${theme.fg('accent')}${i + 1}. ${option.label}${theme.reset()}`
         : `${i + 1}. ${option.label}`;
       lines.push(caret + label);
-      lines.push(`     ${theme.dim()}${option.description}${theme.reset()}`);
+      lines.push(`     ${theme.fg('dim')}${option.description}${theme.reset()}`);
     }
     lines.push('');
 
     lines.push(
       '  ' +
-        theme.dim() +
+        theme.fg('dim') +
         'Enter to select · Tab/Arrow keys to navigate · Esc to cancel' +
         theme.reset(),
     );
@@ -291,17 +292,4 @@ export class PermissionPrompt implements Component, KeyHandler {
   }
 }
 
-/**
- * Char-wrap a string into rows of at most `width` characters. Returns
- * `[""]` for an empty string so callers can always render at least
- * one line. Local copy of `transcript.ts`'s helper; the eventual
- * extraction to a shared util is filed under TODO Follow-ups.
- */
-function wrapText(text: string, width: number) {
-  if (text === '') return [''];
-  const lines: string[] = [];
-  for (let i = 0; i < text.length; i += width) {
-    lines.push(text.slice(i, i + width));
-  }
-  return lines;
-}
+export { PermissionPrompt };

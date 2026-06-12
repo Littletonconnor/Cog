@@ -1,4 +1,4 @@
-export type KeyEvent =
+type KeyEvent =
   | {
       type: 'char';
       value: string;
@@ -51,7 +51,7 @@ export type KeyEvent =
  * Unrecognized control bytes (0x01–0x1a excluding 0x03, 0x09, 0x0d)
  * are skipped.
  */
-export function parseInput(chunk: Buffer): KeyEvent[] {
+function parseInput(chunk: Buffer): KeyEvent[] {
   const events: KeyEvent[] = [];
   let i = 0;
 
@@ -108,3 +108,6 @@ export function parseInput(chunk: Buffer): KeyEvent[] {
 
   return events;
 }
+
+export type { KeyEvent };
+export { parseInput };

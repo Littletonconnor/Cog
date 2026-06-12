@@ -16,7 +16,7 @@ import {
 import { theme } from './theme/default.js';
 import type { Theme } from './theme/index.js';
 
-export class TUI implements Component {
+class TUI implements Component {
   private renderer: Renderer | null = null;
   private unsubscribeKey: (() => void) | null = null;
 
@@ -121,3 +121,4 @@ export class TUI implements Component {
 }
 
 export { onKey } from './terminal.js';
+export { TUI };

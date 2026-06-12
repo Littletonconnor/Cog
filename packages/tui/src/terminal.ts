@@ -10,7 +10,7 @@
 
 import { type KeyEvent, parseInput } from './keys.js';
 
-export type TerminalHandle = {
+type TerminalHandle = {
   write: (s: string) => void;
   cursorTo: (row: number, col: number) => void;
   clearLine: () => void;
@@ -29,7 +29,7 @@ const COLUMNS = 80;
 /** Fallback height when stdout isn't a TTY. */
 const ROWS = 24;
 
-export const terminalHandle: TerminalHandle = {
+const terminalHandle: TerminalHandle = {
   write: (s: string) => process.stdout.write(s),
   cursorTo,
   clearLine,
@@ -44,7 +44,7 @@ export const terminalHandle: TerminalHandle = {
  *
  * Calls this once at TUI startup. Must run before any rendering.
  */
-export function setupTerminal() {
+function setupTerminal() {
   const { columns } = dimensions();
   if (columns < MIN_COLUMNS) {
     process.stderr.write('cog needs a terminal at least 60 cols wide\n');
@@ -67,7 +67,7 @@ export function setupTerminal() {
  *
  * ANSI: `CSI <row>;<col> H`
  */
-export function cursorTo(row: number, col: number) {
+function cursorTo(row: number, col: number) {
   process.stdout.write(`${ESC}${row};${col}H`);
 }
 
@@ -77,7 +77,7 @@ export function cursorTo(row: number, col: number) {
  *
  * ANSI: `CSI 2 K`
  */
-export function clearLine() {
+function clearLine() {
   process.stdout.write(`${ESC}2K`);
 }
 
@@ -87,7 +87,7 @@ export function clearLine() {
  *
  * ANSI: DECTCEM off (`CSI ? 25 l`)
  */
-export function hideCursor() {
+function hideCursor() {
   process.stdout.write(`${ESC}?25l`);
 }
 
@@ -97,7 +97,7 @@ export function hideCursor() {
  *
  * ANSI: DECTCEM on (`CSI ? 25 h`)
  */
-export function showCursor() {
+function showCursor() {
   process.stdout.write(`${ESC}?25h`);
 }
 
@@ -108,7 +108,7 @@ export function showCursor() {
  *
  * ANSI: `CSI ? 2026 h`
  */
-export function syncOutputStart() {
+function syncOutputStart() {
   process.stdout.write(`${ESC}?2026h`);
 }
 
@@ -119,7 +119,7 @@ export function syncOutputStart() {
  *
  * ANSI: `CSI ? 2026 l`
  */
-export function syncOutputEnd() {
+function syncOutputEnd() {
   process.stdout.write(`${ESC}?2026l`);
 }
 
@@ -130,7 +130,7 @@ export function syncOutputEnd() {
  *
  * ANSI: `CSI ? 1049 h`
  */
-export function altScreenEnter() {
+function altScreenEnter() {
   process.stdout.write(`${ESC}?1049h`);
 }
 
@@ -140,7 +140,7 @@ export function altScreenEnter() {
  *
  * ANSI: `CSI ? 1049 l`
  */
-export function altScreenExit() {
+function altScreenExit() {
   process.stdout.write(`${ESC}?1049l`);
 }
 
@@ -152,7 +152,7 @@ export function altScreenExit() {
  * TTY-only feature. Pair with `exitRawMode()` to restore line-buffered mode
  * on shutdown.
  */
-export function enterRawMode() {
+function enterRawMode() {
   if (!process.stdin.isTTY) {
     throw new Error('cog requires a TTY (raw mode unavailable)');
   }
@@ -165,7 +165,7 @@ export function enterRawMode() {
  * Restore stdin to line-buffered mode. No-op when stdin isn't a TTY, so it's
  * safe to call as a cleanup task even when `enterRawMode()` was skipped.
  */
-export function exitRawMode() {
+function exitRawMode() {
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(false);
   }
@@ -176,7 +176,7 @@ export function exitRawMode() {
  * stdout isn't a TTY (e.g. when output is piped) so the TUI can still render
  * a frame for tests / snapshots.
  */
-export function dimensions() {
+function dimensions() {
   return {
     columns: process.stdout.columns ?? COLUMNS,
     rows: process.stdout.rows ?? ROWS,
@@ -190,7 +190,7 @@ export function dimensions() {
  * Returns an unsubscribe function — call it during teardown so the listener
  * doesn't outlive the TUI session.
  */
-export function onResize(callback: (dimensions: { columns: number; rows: number }) => void) {
+function onResize(callback: (dimensions: { columns: number; rows: number }) => void) {
   const handler = () => callback(dimensions());
   process.stdout.on('resize', handler);
   return () => process.stdout.off('resize', handler);
@@ -205,7 +205,7 @@ export function onResize(callback: (dimensions: { columns: number; rows: number 
   *
   * Returns an unsubscribe function — call it during teardown.
 */
-export function onKey(callback: (event: KeyEvent) => void) {
+function onKey(callback: (event: KeyEvent) => void) {
   const handler = (chunk: Buffer) => {
     for (const event of parseInput(chunk)) {
       callback(event);
@@ -226,7 +226,7 @@ const cleanupTasks: Array<() => void> = [];
  * Errors thrown by tasks are swallowed so one bad task doesn't prevent the
  * rest from running.
  */
-export function registerCleanup(task: () => void) {
+function registerCleanup(task: () => void) {
   cleanupTasks.push(task);
 }
 
@@ -235,7 +235,7 @@ export function registerCleanup(task: () => void) {
  * `process.exit`. Idempotent — clears the task list after running so a
  * second call is a no-op.
  */
-export function runCleanup() {
+function runCleanup() {
   for (const task of [...cleanupTasks].reverse()) {
     try {
       task();
@@ -272,3 +272,24 @@ process.once('uncaughtException', (error) => {
   console.error(error);
   process.exit(143);
 });
+
+export type { TerminalHandle };
+export {
+  altScreenEnter,
+  altScreenExit,
+  clearLine,
+  cursorTo,
+  dimensions,
+  enterRawMode,
+  exitRawMode,
+  hideCursor,
+  onKey,
+  onResize,
+  registerCleanup,
+  runCleanup,
+  setupTerminal,
+  showCursor,
+  syncOutputEnd,
+  syncOutputStart,
+  terminalHandle,
+};

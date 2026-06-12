@@ -19,6 +19,7 @@
 
 import type { Component } from '../renderer.js';
 import type { Theme } from '../theme/index.js';
+import { wrapText } from '../utils.js';
 
 /**
  * A tool invocation in the transcript. Created by `tool_use_start` with
@@ -99,7 +100,7 @@ type ErrorBlock = {
  * `crypto.randomUUID()`) so subsequent mutations have something to
  * look up against.
  */
-export type Block = ToolBlock | UserBlock | AssistantBlock | ErrorBlock;
+type Block = ToolBlock | UserBlock | AssistantBlock | ErrorBlock;
 
 /**
  * Mutable, in-memory representation of the transcript. Holds the
@@ -112,7 +113,7 @@ export type Block = ToolBlock | UserBlock | AssistantBlock | ErrorBlock;
  * can decide between extending the existing block and creating a new
  * one. All other lifecycle decisions live inside the mutator methods.
  */
-export class Transcript implements Component {
+class Transcript implements Component {
   /**
    * The ordered list of blocks in the transcript, oldest first.
    * Mutated in place by the mutator methods; read-only from the
@@ -277,7 +278,7 @@ function renderBlock(block: Block, width: number, theme: Theme): string[] {
           ? `${theme.fg('success')}✓`
           : block.status === 'error'
             ? `${theme.fg('danger')}✗`
-            : `${theme.dim()}...`;
+            : `${theme.fg('dim')}...`;
       return [`${indicator} ${block.name}${theme.reset()}`];
     }
     case 'error': {
@@ -286,7 +287,7 @@ function renderBlock(block: Block, width: number, theme: Theme): string[] {
         ...wrapText(`✗ ${block.message}`, width).map(
           (line) => theme.fg('danger') + line + theme.reset(),
         ),
-        theme.dim() + shortcuts + theme.reset(),
+        theme.fg('dim') + shortcuts + theme.reset(),
       ];
     }
     default: {
@@ -296,11 +297,5 @@ function renderBlock(block: Block, width: number, theme: Theme): string[] {
   }
 }
 
-function wrapText(text: string, width: number) {
-  if (text === '') return [''];
-  const lines: string[] = [];
-  for (let i = 0; i < text.length; i += width) {
-    lines.push(text.slice(i, i + width));
-  }
-  return lines;
-}
+export type { Block };
+export { Transcript };
