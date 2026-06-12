@@ -18,9 +18,9 @@
  * @see docs/TUI-DESIGN.md §4.7
  */
 
-import type { KeyEvent } from "../keys.js";
-import type { Component, KeyHandler } from "../renderer.js";
-import type { Theme } from "../theme/index.js";
+import type { KeyEvent } from '../keys.js';
+import type { Component, KeyHandler } from '../renderer.js';
+import type { Theme } from '../theme/index.js';
 
 /**
  * The user's answer to a permission ask. Resolved by `show()`'s Promise.
@@ -35,7 +35,7 @@ import type { Theme } from "../theme/index.js";
  *     The permission-prompt itself does **not** embed a text input —
  *     typing stays the input box's job.
  */
-type PermissionChoice = "yes" | "yes-always" | "no" | "type-something";
+type PermissionChoice = 'yes' | 'yes-always' | 'no' | 'type-something';
 
 /**
  * One row in the options list. `value` is what the Promise resolves
@@ -63,7 +63,7 @@ const GAP = 2;
  * across stateful components.
  */
 const GLYPHS = {
-  prompt: "❯",
+  prompt: '❯',
 } as const;
 
 /**
@@ -73,21 +73,21 @@ const GLYPHS = {
  * break between direct answers and "reply in your own words."
  */
 const OPTIONS: ReadonlyArray<Option> = [
-  { value: "yes", label: "Yes", description: "Run this command once." },
+  { value: 'yes', label: 'Yes', description: 'Run this command once.' },
   {
-    value: "yes-always",
+    value: 'yes-always',
     label: "Yes, don't ask again",
-    description: "Add the pattern to the session allowlist.",
+    description: 'Add the pattern to the session allowlist.',
   },
   {
-    value: "no",
-    label: "No",
-    description: "Skip this command. The agent will not run the tool.",
+    value: 'no',
+    label: 'No',
+    description: 'Skip this command. The agent will not run the tool.',
   },
   {
-    value: "type-something",
-    label: "Type something",
-    description: "Reply in your own words.",
+    value: 'type-something',
+    label: 'Type something',
+    description: 'Reply in your own words.',
   },
 ];
 
@@ -151,29 +151,27 @@ export class PermissionPrompt implements Component, KeyHandler {
     for (const headerLine of wrapText(this.prompt, width - GAP)) {
       lines.push(`  ${headerLine}`);
     }
-    lines.push("");
+    lines.push('');
 
     for (let i = 0; i < OPTIONS.length; i++) {
       const option = OPTIONS[i];
-      if (option.value === "type-something") {
-        lines.push(`  ${theme.dim()}${"─".repeat(width - 4)}${theme.reset()}`);
+      if (option.value === 'type-something') {
+        lines.push(`  ${theme.dim()}${'─'.repeat(width - 4)}${theme.reset()}`);
       }
       const isSelected = i === this.selectedIndex;
-      const caret = isSelected
-        ? `${theme.fg("accent") + GLYPHS.prompt} ${theme.reset()}`
-        : "  ";
+      const caret = isSelected ? `${theme.fg('accent') + GLYPHS.prompt} ${theme.reset()}` : '  ';
       const label = isSelected
-        ? `${theme.fg("accent")}${i + 1}. ${option.label}${theme.reset()}`
+        ? `${theme.fg('accent')}${i + 1}. ${option.label}${theme.reset()}`
         : `${i + 1}. ${option.label}`;
       lines.push(caret + label);
       lines.push(`     ${theme.dim()}${option.description}${theme.reset()}`);
     }
-    lines.push("");
+    lines.push('');
 
     lines.push(
-      "  " +
+      '  ' +
         theme.dim() +
-        "Enter to select · Tab/Arrow keys to navigate · Esc to cancel" +
+        'Enter to select · Tab/Arrow keys to navigate · Esc to cancel' +
         theme.reset(),
     );
 
@@ -198,7 +196,7 @@ export class PermissionPrompt implements Component, KeyHandler {
    */
   show(args: ShowArgs): Promise<PermissionChoice> {
     if (this.resolver !== null) {
-      throw new Error("PermissionPrompt.show(): already active");
+      throw new Error('PermissionPrompt.show(): already active');
     }
     this.prompt = args.prompt;
     this.patterns = args.patterns;
@@ -230,20 +228,20 @@ export class PermissionPrompt implements Component, KeyHandler {
     if (this.resolver === null) return;
 
     switch (event.type) {
-      case "arrow":
-        if (event.dir === "up") this.moveSelection(-1);
-        if (event.dir === "down") this.moveSelection(1);
+      case 'arrow':
+        if (event.dir === 'up') this.moveSelection(-1);
+        if (event.dir === 'down') this.moveSelection(1);
         return;
-      case "tab":
-        if (event.dir === "forward") this.moveSelection(1);
-        if (event.dir === "back") this.moveSelection(-1);
+      case 'tab':
+        if (event.dir === 'forward') this.moveSelection(1);
+        if (event.dir === 'back') this.moveSelection(-1);
         return;
-      case "enter":
+      case 'enter':
         this.resolver(OPTIONS[this.selectedIndex].value);
         this.clear();
         return;
-      case "esc":
-        this.resolver("no");
+      case 'esc':
+        this.resolver('no');
         this.clear();
         return;
       default:
@@ -275,10 +273,7 @@ export class PermissionPrompt implements Component, KeyHandler {
    * route through here so the clamp logic lives once.
    */
   private moveSelection(delta: number) {
-    this.selectedIndex = Math.max(
-      0,
-      Math.min(OPTIONS.length - 1, this.selectedIndex + delta),
-    );
+    this.selectedIndex = Math.max(0, Math.min(OPTIONS.length - 1, this.selectedIndex + delta));
   }
 
   /**
@@ -303,7 +298,7 @@ export class PermissionPrompt implements Component, KeyHandler {
  * extraction to a shared util is filed under TODO Follow-ups.
  */
 function wrapText(text: string, width: number) {
-  if (text === "") return [""];
+  if (text === '') return [''];
   const lines: string[] = [];
   for (let i = 0; i < text.length; i += width) {
     lines.push(text.slice(i, i + width));

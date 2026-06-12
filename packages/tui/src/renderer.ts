@@ -11,9 +11,9 @@
  * @see docs/TUI-DESIGN.md §7 (redraw policy) and docs/RESEARCH.md §2.
  */
 
-import type { KeyEvent } from "./keys.js";
-import type { TerminalHandle } from "./terminal.js";
-import type { Theme } from "./theme/index.js";
+import type { KeyEvent } from './keys.js';
+import type { TerminalHandle } from './terminal.js';
+import type { Theme } from './theme/index.js';
 
 /**
  * A pure renderable unit. Given the available width and the active theme,
@@ -148,7 +148,7 @@ export class Renderer {
     for (let i = firstChanged; i <= lastChanged; i++) {
       this.terminal.cursorTo(i + 1, 1); // ANSI is 1-indexed
       this.terminal.clearLine();
-      this.terminal.write(newLines[i] ?? "");
+      this.terminal.write(newLines[i] ?? '');
     }
     this.terminal.syncOutputEnd();
 

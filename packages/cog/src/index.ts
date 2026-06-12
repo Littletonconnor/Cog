@@ -1,7 +1,7 @@
-import { MockProvider } from "providers";
-import { printHelpMessage } from "./help.js";
-import { cli } from "./parser.js";
-import { onKey, TUI } from "tui";
+import { MockProvider } from 'providers';
+import { onKey, TUI } from 'tui';
+import { printHelpMessage } from './help.js';
+import { cli } from './parser.js';
 
 export async function main() {
   try {
@@ -12,11 +12,11 @@ export async function main() {
       printHelpMessage();
     } else if (cliFlags.mock) {
       const controller = new AbortController();
-      process.once("SIGINT", () => controller.abort());
+      process.once('SIGINT', () => controller.abort());
       const mockProvider = new MockProvider(cliFlags.mock);
       const events = mockProvider.stream({
         messages: [],
-        model: "mock",
+        model: 'mock',
         signal: controller.signal,
       });
       const tui = new TUI();
@@ -27,7 +27,7 @@ export async function main() {
         }
         await new Promise<void>((resolve) => {
           const unsubscribe = onKey((event) => {
-            if (event.type === "esc" || event.type === "ctrl-c") {
+            if (event.type === 'esc' || event.type === 'ctrl-c') {
               unsubscribe();
               resolve();
             }
